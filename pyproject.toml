@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "refine-ai"
+version = "0.1.0"
+description = "Autonomous Data Pipeline & Synthesis Agent with Human-in-the-Loop Governance"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Aziz Toprak Yilmaz" }
+]
+dependencies = [
+    "langgraph>=0.2.0",
+    "langgraph-checkpoint-sqlite>=2.0.0",
+    "langchain-core>=0.3.0",
+    "polars>=1.0.0",
+    "rich>=13.0.0",
+    "typer>=0.12.0",
+    "scipy>=1.13.0",
+    "numpy>=1.26.0",
+    "faker>=25.0.0",
+    "pydantic>=2.7.0",
+    "langchain-ollama>=0.1.0",
+    "pytest>=9.1.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.4.0",
+]
+
+[project.scripts]
+refine = "refine.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["refine*"]

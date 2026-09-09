@@ -1,0 +1,501 @@
+customer_id,name,age,salary,city,country,churn
+CUST_1000,Michael Simmons,19,99196,,USA,0
+CUST_1001,Rebecca Jones,52,,,united states,0
+CUST_1002,Ashley Acosta,56,8335942,Chicago,,0
+CUST_1003,Ryan Allen,35,36703,Austin,USA,0
+CUST_1004,Melissa Frank,66,59312,,united states,0
+CUST_1005,Carolyn Baker,69,,Seattle,united states,1
+CUST_1006,Michael Perez,58,129800,New York,US_OFFICIAL,1
+CUST_1007,Susan Hill,36,96024,Seattle,US,0
+CUST_1008,Bethany Thomas,41,104986,New York,,0
+CUST_1009,Matthew Miller,,77834,Chicago,united states,0
+CUST_1010,Jane Hernandez,67,95043,Seattle,US,0
+CUST_1011,Veronica Williams,54,117490,Seattle,USA,0
+CUST_1012,Cynthia Chung,27,99651,Austin,,0
+CUST_1013,James Hebert,55,92493,New York,USA,0
+CUST_1014,Gregory Miles,27,145666,,US_OFFICIAL,0
+CUST_1015,Adam Chang,51,38009,Chicago,,0
+CUST_1016,Jennifer Ware,39,148971,Austin,USA,0
+CUST_1017,Alan Long,50,113235,San Francisco,,0
+CUST_1018,Mary Carlson,52,174029,Seattle,US,1
+CUST_1019,Nancy Scott,69,50184,New York,USA,0
+CUST_1020,Brenda Hogan,22,174645,,USA,0
+CUST_1021,Adrian White,34,145923,San Francisco,USA,0
+CUST_1022,Jose Sullivan,60,149845,San Francisco,US_OFFICIAL,0
+CUST_1023,John Owen,55,92728,,US,0
+CUST_1024,Melvin Lewis,20,53574,Seattle,US_OFFICIAL,0
+CUST_1025,Diane Hodges,,158907,Seattle,USA,0
+CUST_1026,Cameron Hammond,,146038,New York,united states,0
+CUST_1027,Barbara Erickson,24,,New York,,0
+CUST_1028,Lauren Perry,,145593,San Francisco,USA,0
+CUST_1029,Catherine Aguilar,290,,New York,,0
+CUST_1030,Richard Potter,33,162307,Seattle,united states,0
+CUST_1031,Madeline Knight,,11550190,Seattle,United States,0
+CUST_1032,Brent Johnson,64,162577,San Francisco,USA,0
+CUST_1033,David Brown,52,,,United States,0
+CUST_1034,Louis Montgomery,51,168124,New York,US,0
+CUST_1035,Mary Harris,33,99543,Chicago,US_OFFICIAL,0
+CUST_1036,Nancy Hopkins,54,103358,Austin,USA,0
+CUST_1037,Bonnie Contreras,60,154858,New York,United States,1
+CUST_1038,Andrea Johnson,54,54204,Austin,US_OFFICIAL,0
+CUST_1039,Steven Chaney,22,131869,Chicago,United States,0
+CUST_1040,Edward Garcia,69,37050,Austin,,0
+CUST_1041,Ryan Miles,,104328,Chicago,US,0
+CUST_1042,Joseph Bennett,31,88371,Austin,,0
+CUST_1043,Judith Dawson,21,,New York,united states,1
+CUST_1044,Gregory Chase,58,77357,Seattle,,0
+CUST_1045,Patricia Douglas,,74073,,US_OFFICIAL,0
+CUST_1046,Brian Price,45,115808,New York,United States,0
+CUST_1047,Mr. Alexander Martin,33,127714,Seattle,US_OFFICIAL,0
+CUST_1048,Ronald Lawson,33,81413,,united states,0
+CUST_1049,Sandra Roberson,44,100055,New York,United States,0
+CUST_1050,John Castaneda,-8,155665,San Francisco,United States,0
+CUST_1051,Carol Clarke,43,53198,Chicago,United States,0
+CUST_1052,Jillian Banks,52,42235,Austin,US,0
+CUST_1053,Stephanie Martinez,34,,Austin,US_OFFICIAL,0
+CUST_1054,Sharon Barry,25,84828,,United States,0
+CUST_1055,Thomas Klein,69,86651,Austin,United States,0
+CUST_1056,Kathleen Carpenter,25,113727,Seattle,US_OFFICIAL,0
+CUST_1057,Angela Garcia,53,145217,San Francisco,,0
+CUST_1058,William Bates,53,114658,Chicago,United States,0
+CUST_1059,William Brown,46,91020,San Francisco,US_OFFICIAL,0
+CUST_1060,Candace Taylor,60,122867,San Francisco,US,0
+CUST_1061,Nancy White,30,47114,Chicago,USA,0
+CUST_1062,Jeremy Powers,256,85970,Seattle,,0
+CUST_1063,Dale Lucas,,62941,Chicago,united states,0
+CUST_1064,Kenneth Murphy,25,156803,Chicago,,0
+CUST_1065,Emily Phillips,46,167324,Chicago,united states,0
+CUST_1066,Sierra Rodriguez,,152983,Austin,United States,0
+CUST_1067,Jason Acevedo,58,150309,San Francisco,US,0
+CUST_1068,Scott Campos,52,,San Francisco,USA,0
+CUST_1069,Shannon Sloan,254,157139,,united states,0
+CUST_1070,Jessica Murray,67,40120,New York,US_OFFICIAL,0
+CUST_1071,Allison Adams,42,144843,Chicago,US_OFFICIAL,0
+CUST_1072,William Scott,49,149251,,united states,0
+CUST_1073,Pamela Cooper,43,157523,Chicago,USA,1
+CUST_1074,Karina Brown,54,57006,Seattle,,0
+CUST_1075,Renee Ray,38,120680,Seattle,United States,0
+CUST_1076,Charlene Fletcher,44,56471,,united states,0
+CUST_1077,Troy Quinn,40,52987,,,1
+CUST_1078,Maria Adams,19,97533,New York,USA,0
+CUST_1079,Thomas Jones,62,131703,New York,USA,0
+CUST_1080,Stephen Contreras,,41731,Seattle,United States,0
+CUST_1081,Christopher Chen,22,98661,Austin,US,0
+CUST_1082,Steven Donovan,25,45766,Austin,United States,1
+CUST_1083,Stephanie Lee,18,163503,Austin,US,0
+CUST_1084,Robin Williams,63,81173,Austin,,0
+CUST_1085,Terri Williams,67,149183,Austin,,0
+CUST_1086,Bruce Evans,23,153175,Chicago,USA,0
+CUST_1087,Andrew Robles,19,120200,Austin,USA,0
+CUST_1088,Thomas Cunningham,56,107422,,US_OFFICIAL,0
+CUST_1089,Jessica Kim,,163077,Seattle,US_OFFICIAL,0
+CUST_1090,Leslie Delgado,68,9936453,San Francisco,USA,0
+CUST_1091,Amanda Lopez,48,125113,Chicago,united states,0
+CUST_1092,Timothy Cunningham,35,95434,Austin,US,0
+CUST_1093,Troy Taylor,66,85211,Austin,USA,0
+CUST_1094,Kayla Moon,51,61352,Austin,USA,0
+CUST_1095,Denise Baker,-9,46931,San Francisco,US,0
+CUST_1096,David Singh,24,109537,Austin,united states,0
+CUST_1097,Joy Allen,272,52129,Chicago,united states,0
+CUST_1098,Franklin Martin,188,114648,New York,US,0
+CUST_1099,Natalie Bell,56,94162,Seattle,US_OFFICIAL,0
+CUST_1100,Mary Carroll,45,50789,New York,US_OFFICIAL,0
+CUST_1101,Jeremy Scott,31,56282,Chicago,USA,1
+CUST_1102,Edward Jackson,-8,158184,,United States,0
+CUST_1103,Jennifer Rodgers,47,,Chicago,USA,0
+CUST_1104,Alexis Williams,45,93932,,,0
+CUST_1105,David Hardin,,,Chicago,United States,0
+CUST_1106,Jose White,47,140515,Seattle,United States,0
+CUST_1107,Nathan Thompson,45,100632,,US,0
+CUST_1108,Rebecca Silva,54,40438,Chicago,,1
+CUST_1109,Hannah White,48,150927,Chicago,United States,0
+CUST_1110,Laura Schwartz,23,142046,New York,United States,0
+CUST_1111,Eric Woodward,62,139976,,US_OFFICIAL,0
+CUST_1112,Brooke White,25,140952,New York,US_OFFICIAL,0
+CUST_1113,Christine Smith,44,,Seattle,US_OFFICIAL,0
+CUST_1114,Christy Conrad,31,69344,Seattle,United States,0
+CUST_1115,Amanda Kim,56,76517,Chicago,United States,0
+CUST_1116,Melanie Brown,25,65793,Seattle,,0
+CUST_1117,Cory Gonzalez,63,161484,Chicago,united states,0
+CUST_1118,Thomas Warren,,70784,Seattle,US,0
+CUST_1119,Kelly Lara,35,109144,Chicago,,0
+CUST_1120,Andrew Eaton,27,161967,Chicago,United States,0
+CUST_1121,Courtney Martinez,30,97601,Seattle,US_OFFICIAL,1
+CUST_1122,Tyler Ramsey,63,134937,San Francisco,united states,0
+CUST_1123,Tonya Perry,-9,122030,Seattle,US,0
+CUST_1124,Caitlin Roman,18,142473,New York,,0
+CUST_1125,Diana Melton,39,139197,,,0
+CUST_1126,Kimberly Glover,52,118010,Seattle,,0
+CUST_1127,Deborah Weiss,-2,110334,Seattle,USA,0
+CUST_1128,Tony Weber,63,151307,New York,USA,1
+CUST_1129,Mary Douglas,36,147901,Seattle,USA,0
+CUST_1130,Laura Patterson,28,135281,Seattle,US_OFFICIAL,0
+CUST_1131,Lori Warren,,101578,New York,united states,0
+CUST_1132,Tammy Wade,36,76412,Austin,US,0
+CUST_1133,Justin Wyatt,45,154756,Seattle,United States,0
+CUST_1134,Trevor Ward,,129098,Austin,US_OFFICIAL,1
+CUST_1135,Ronald Marshall,43,47856,Austin,US_OFFICIAL,0
+CUST_1136,Lawrence Archer,69,84841,San Francisco,US_OFFICIAL,0
+CUST_1137,John Fuentes,59,,,united states,0
+CUST_1138,Nicholas Bowen,,120647,San Francisco,,0
+CUST_1139,Christy Smith,41,106441,Seattle,USA,0
+CUST_1140,Ashley Cummings,39,157770,,US,0
+CUST_1141,Eric Adams,64,139179,Seattle,US_OFFICIAL,1
+CUST_1142,Kayla Hill,47,103724,Austin,US_OFFICIAL,0
+CUST_1143,Ms. Michelle Scott MD,19,120984,New York,US_OFFICIAL,0
+CUST_1144,Sarah Richardson,62,142032,,US,0
+CUST_1145,Juan Sparks,49,96551,,US_OFFICIAL,0
+CUST_1146,Brandon Gray,65,176608,San Francisco,united states,0
+CUST_1147,Devin Ramirez,49,108332,San Francisco,US,0
+CUST_1148,Paul Anderson,41,,Austin,,1
+CUST_1149,Judy Hardin,25,154201,Chicago,US,0
+CUST_1150,Ryan Hoffman,235,68010,Chicago,US_OFFICIAL,0
+CUST_1151,Samantha Williams,32,73680,,US_OFFICIAL,0
+CUST_1152,Jesse Curry,,100707,,USA,0
+CUST_1153,Michael Cox,,97372,San Francisco,US_OFFICIAL,0
+CUST_1154,Andrew Hawkins,,64792,,,0
+CUST_1155,Kimberly Owen,55,167078,New York,USA,0
+CUST_1156,Cathy Mueller,60,155073,New York,,0
+CUST_1157,Vincent Wilkins,45,163521,New York,,0
+CUST_1158,Raven Villa,27,,Chicago,United States,0
+CUST_1159,Tracy Hubbard,56,153938,New York,US_OFFICIAL,0
+CUST_1160,Christina Robinson,,179529,Seattle,,0
+CUST_1161,Angel Huang MD,39,139524,Austin,united states,0
+CUST_1162,Adam Jackson,41,159326,,US,0
+CUST_1163,Charles Smith,65,69108,,US_OFFICIAL,0
+CUST_1164,Noah Patterson,60,127693,Seattle,,0
+CUST_1165,David Duncan,36,127181,San Francisco,US,0
+CUST_1166,Amanda Butler,24,131353,Chicago,US,0
+CUST_1167,Randy Jenkins,53,41882,Austin,US_OFFICIAL,1
+CUST_1168,Mary Blackburn,66,124082,,United States,0
+CUST_1169,Jeremy Black,43,,New York,,0
+CUST_1170,Christina Taylor,42,124363,Austin,USA,0
+CUST_1171,Richard Kramer,23,75784,New York,USA,0
+CUST_1172,Donald Weaver,60,150879,Chicago,united states,0
+CUST_1173,Cheryl Hernandez,36,162567,New York,US_OFFICIAL,0
+CUST_1174,Debra Olson,21,10056977,Austin,USA,0
+CUST_1175,Dr. Jacqueline Lee DDS,,147893,,USA,0
+CUST_1176,Jeffrey Lewis,53,127842,New York,US,0
+CUST_1177,Megan Vasquez DDS,22,147534,Seattle,US_OFFICIAL,0
+CUST_1178,Adrienne Logan,38,155611,New York,,0
+CUST_1179,Sandra May,,139975,,US_OFFICIAL,0
+CUST_1180,Alyssa Munoz,32,79074,New York,US,0
+CUST_1181,Debra Cunningham,,127038,San Francisco,,0
+CUST_1182,Claudia Keith,,75073,,,0
+CUST_1183,Courtney Brown,47,152677,Chicago,,0
+CUST_1184,Edward Baxter,38,117873,Seattle,USA,0
+CUST_1185,Jon Drake,35,127259,,US_OFFICIAL,0
+CUST_1186,David Nguyen,-6,55114,New York,,0
+CUST_1187,Jake Bishop,47,45753,Chicago,united states,0
+CUST_1188,Jennifer Fitzgerald,48,51219,,united states,0
+CUST_1189,Billy Woodard,63,,San Francisco,,0
+CUST_1190,Kyle Anderson,51,76614,Austin,United States,0
+CUST_1191,Ashley Spence,61,122726,Chicago,US,0
+CUST_1192,Zachary Fowler,64,74419,,United States,0
+CUST_1193,Zachary Morrow,37,137749,New York,USA,0
+CUST_1194,Lynn Lopez,68,68500,Chicago,,0
+CUST_1195,Samantha Solis,50,130052,San Francisco,United States,0
+CUST_1196,Holly Guzman,30,71061,,USA,0
+CUST_1197,Stephen Brown,,173027,Chicago,US,0
+CUST_1198,Lisa Ferguson,28,78395,Seattle,,0
+CUST_1199,Jonathan Hicks,46,152683,Austin,USA,0
+CUST_1200,Peter Herrera,30,150499,Seattle,united states,0
+CUST_1201,Jennifer Parks,28,71280,,United States,0
+CUST_1202,Christopher Reynolds,24,170242,San Francisco,US,0
+CUST_1203,Michael Smith,27,59042,Austin,USA,0
+CUST_1204,Matthew Padilla,43,96807,Austin,united states,0
+CUST_1205,Jonathan Olsen,24,122894,,USA,0
+CUST_1206,Dominic Shaffer,62,157974,New York,united states,1
+CUST_1207,Jeffery Gomez,27,173352,,united states,0
+CUST_1208,John Smith,21,154829,,US,0
+CUST_1209,Ashley Lane,19,98422,,,0
+CUST_1210,Lindsay Wilson,33,84103,Chicago,,0
+CUST_1211,Gary Adams,284,168070,,US_OFFICIAL,0
+CUST_1212,Jason Garcia,-7,101492,,,0
+CUST_1213,Carol Dalton,64,62174,Austin,US_OFFICIAL,0
+CUST_1214,Casey Rivera,39,80898,Seattle,,0
+CUST_1215,Brandon Jackson,22,154977,New York,US,0
+CUST_1216,David Hendricks,38,170104,Chicago,united states,0
+CUST_1217,Kenneth Hill,-4,47531,New York,,0
+CUST_1218,Joshua Mcknight,43,136356,Seattle,United States,0
+CUST_1219,Felicia Russell,69,56656,Seattle,,0
+CUST_1220,Katie Wilson,52,61895,Austin,US,0
+CUST_1221,Robert Nguyen,45,151367,Austin,United States,0
+CUST_1222,Benjamin Rosario,58,50036,Seattle,US,0
+CUST_1223,Lindsey Ballard,61,43163,Seattle,USA,1
+CUST_1224,Joel Pena,243,43489,Seattle,US_OFFICIAL,0
+CUST_1225,Shelby Oliver,66,,Seattle,USA,0
+CUST_1226,Matthew Perkins,25,8121368,Chicago,united states,0
+CUST_1227,Jeffrey Thomas,63,109862,Seattle,,0
+CUST_1228,Joshua Lee,,,Seattle,USA,0
+CUST_1229,Carolyn Peterson,38,52023,Austin,US_OFFICIAL,0
+CUST_1230,Edward Tyler,62,129763,San Francisco,US_OFFICIAL,0
+CUST_1231,Cynthia Shaw PhD,49,14294937,Chicago,US_OFFICIAL,0
+CUST_1232,Cynthia Mercado,22,160479,Seattle,US_OFFICIAL,0
+CUST_1233,Brian Cox,231,152958,Austin,united states,0
+CUST_1234,Heather Ward,53,82700,New York,USA,0
+CUST_1235,Nicholas Burch,37,119583,Chicago,,0
+CUST_1236,Sabrina Alvarez,34,179399,,United States,0
+CUST_1237,Sarah Swanson,50,75421,Chicago,USA,0
+CUST_1238,Corey Rodriguez,20,42437,,US,0
+CUST_1239,Thomas Weaver,59,144205,Seattle,US_OFFICIAL,0
+CUST_1240,John Cooper,59,161601,Seattle,USA,0
+CUST_1241,Colin Morris,165,143952,Austin,united states,0
+CUST_1242,Melissa Wilson,63,125536,,united states,0
+CUST_1243,Nicole Franco,38,67118,San Francisco,United States,0
+CUST_1244,Daisy Ibarra,42,144611,San Francisco,USA,0
+CUST_1245,Gabrielle Santos,64,76770,Seattle,united states,0
+CUST_1246,Travis Howard,19,,San Francisco,united states,0
+CUST_1247,Curtis Williams,21,158361,New York,United States,0
+CUST_1248,Denise Velasquez,64,140710,,United States,1
+CUST_1249,Sheila Singh,41,54275,Chicago,united states,0
+CUST_1250,Levi Peterson,61,68728,Austin,US,0
+CUST_1251,Caitlin Day,27,168463,New York,united states,1
+CUST_1252,Scott Hale,69,154796,Chicago,USA,0
+CUST_1253,Robert Mitchell,38,113442,Chicago,US_OFFICIAL,0
+CUST_1254,Sean Tucker,37,39361,New York,United States,0
+CUST_1255,Lonnie Lee,68,41985,Chicago,US_OFFICIAL,0
+CUST_1256,Carmen Taylor,55,172424,Seattle,,0
+CUST_1257,Timothy Higgins,20,63808,,USA,0
+CUST_1258,Heather Anderson,,142577,Seattle,US_OFFICIAL,0
+CUST_1259,Amanda Freeman,21,170969,Seattle,USA,0
+CUST_1260,Jennifer Salazar,29,174756,Austin,United States,0
+CUST_1261,Michael Garcia,,113249,Austin,USA,0
+CUST_1262,Douglas Reeves,62,118110,Austin,united states,0
+CUST_1263,Melissa Garrett,52,138424,San Francisco,United States,0
+CUST_1264,Kimberly Davis,63,,Seattle,united states,0
+CUST_1265,Timothy Rodriguez,35,106203,,USA,0
+CUST_1266,Brandon Hull,21,174209,New York,USA,0
+CUST_1267,Paul Davenport,48,71036,San Francisco,US,0
+CUST_1268,Tommy Hood,48,87286,New York,United States,0
+CUST_1269,Jennifer Jackson,,175286,New York,,0
+CUST_1270,Scott Stephens,,81081,Seattle,US,0
+CUST_1271,Heather Castillo,,110882,,US,0
+CUST_1272,Austin King,,109596,Chicago,united states,0
+CUST_1273,Richard Clark,26,157688,New York,United States,0
+CUST_1274,Ryan Smith,59,83810,Austin,US,0
+CUST_1275,Adrian Vaughn,29,141296,New York,united states,0
+CUST_1276,Jennifer Campbell,,160161,New York,United States,0
+CUST_1277,Franklin Smith,66,121409,Chicago,United States,1
+CUST_1278,Sherry Burnett,62,65991,Seattle,united states,0
+CUST_1279,Evelyn Greene,63,65779,Austin,,0
+CUST_1280,Anthony Johnson,26,154269,Austin,,0
+CUST_1281,Anthony Mccann,48,92255,Chicago,USA,0
+CUST_1282,Anthony Lambert,,129839,New York,US,1
+CUST_1283,Derek Weiss,50,175682,Chicago,USA,0
+CUST_1284,Jonathan Reed,63,58839,New York,US_OFFICIAL,0
+CUST_1285,Rhonda Powers,47,156209,New York,,0
+CUST_1286,Pam Spencer,65,54144,New York,US,0
+CUST_1287,Phyllis Johnson,167,158750,San Francisco,US,0
+CUST_1288,Amy Thompson,64,145195,Seattle,United States,0
+CUST_1289,Robert Martinez,42,176374,Austin,USA,0
+CUST_1290,Joseph Jones,43,93376,Austin,US,0
+CUST_1291,Victoria Owen,45,95205,San Francisco,USA,0
+CUST_1292,Cody Jacobson,64,43445,New York,,0
+CUST_1293,Justin Bonilla,158,47760,Seattle,USA,0
+CUST_1294,James Garrett,66,49796,Austin,USA,0
+CUST_1295,Jeffrey Buchanan,54,119060,San Francisco,USA,0
+CUST_1296,Anthony Jordan,44,50979,San Francisco,US_OFFICIAL,0
+CUST_1297,Patricia Davis,49,,Seattle,United States,0
+CUST_1298,Nicholas Salazar,44,113613,Chicago,united states,0
+CUST_1299,Christopher Price MD,37,72840,Chicago,united states,0
+CUST_1300,Michelle Sanchez,51,98663,New York,United States,0
+CUST_1301,Mary Wade,23,84933,Chicago,US,0
+CUST_1302,Vanessa Mckinney,30,91889,Austin,united states,0
+CUST_1303,Lauren Myers,31,65753,Seattle,,0
+CUST_1304,Tracy Jackson,63,97739,Austin,US_OFFICIAL,0
+CUST_1305,Bianca Zimmerman,40,129278,Seattle,US_OFFICIAL,0
+CUST_1306,Katelyn Moore,48,118947,Seattle,USA,1
+CUST_1307,Matthew Harding Jr.,65,103360,Chicago,US_OFFICIAL,0
+CUST_1308,Sandra Price,30,134572,Seattle,US_OFFICIAL,0
+CUST_1309,Robert Smith,39,163089,Seattle,,0
+CUST_1310,Daniel Evans MD,40,178273,Chicago,united states,0
+CUST_1311,Steven Mccall,51,,New York,US,0
+CUST_1312,Paul Coleman,58,74591,Seattle,US,0
+CUST_1313,Yvonne Parker,60,161669,New York,,0
+CUST_1314,Wendy Collins,19,107021,New York,US_OFFICIAL,0
+CUST_1315,Amanda Lloyd,45,81993,Chicago,US,0
+CUST_1316,Yesenia Bush,,127914,New York,United States,0
+CUST_1317,Shannon Martin,54,94207,New York,United States,0
+CUST_1318,Dr. Benjamin Mcmahon,66,,Chicago,united states,0
+CUST_1319,Julie Drake,62,166034,Austin,united states,0
+CUST_1320,Sarah Henderson,24,46154,Chicago,USA,0
+CUST_1321,Alexandria Martin,-2,108498,New York,US_OFFICIAL,0
+CUST_1322,Calvin Porter,19,72798,New York,,0
+CUST_1323,Mary Jones,54,137015,Austin,,0
+CUST_1324,Nicholas Lynch,68,55559,Austin,US_OFFICIAL,1
+CUST_1325,Jessica Williams,22,138993,,United States,0
+CUST_1326,Aaron Williams,49,179975,Chicago,united states,0
+CUST_1327,Kelly Blackwell,,99605,,,0
+CUST_1328,Jeffery Bryan,68,137137,New York,United States,1
+CUST_1329,Darren Rowe,41,61799,,USA,0
+CUST_1330,Vincent Roberts,50,41884,New York,US,0
+CUST_1331,Lauren Maxwell,42,11942580,Chicago,united states,0
+CUST_1332,Sherri Hansen,54,134806,,USA,0
+CUST_1333,Amy Morgan,22,107341,New York,united states,0
+CUST_1334,Wendy Hill,64,86261,,united states,0
+CUST_1335,Katie Fritz,39,134585,Seattle,United States,0
+CUST_1336,Bryan Rodriguez,56,119060,San Francisco,US_OFFICIAL,0
+CUST_1337,Jason Kim,,118660,Seattle,United States,0
+CUST_1338,Tanya Robinson,38,138005,,United States,0
+CUST_1339,David Fry,52,179205,Seattle,US,0
+CUST_1340,Brian Griffin,69,53129,San Francisco,united states,0
+CUST_1341,Brian James,60,145920,,united states,0
+CUST_1342,Mitchell Evans,43,144655,,US_OFFICIAL,0
+CUST_1343,Dylan Mitchell,69,57277,Austin,US,0
+CUST_1344,Theresa Torres MD,54,139757,Seattle,United States,0
+CUST_1345,Stephen Burns,,170999,Chicago,US_OFFICIAL,0
+CUST_1346,Yvonne White,47,166194,New York,USA,0
+CUST_1347,Jessica Garza,23,72139,Seattle,United States,0
+CUST_1348,Diana Thornton,40,149862,Austin,,1
+CUST_1349,Mark Booth,-2,10755892,,,0
+CUST_1350,Maria Andrews MD,65,80731,Chicago,US_OFFICIAL,0
+CUST_1351,Mark White,69,83352,Seattle,USA,0
+CUST_1352,Melissa Jones,30,147604,,united states,0
+CUST_1353,Jerry Blanchard,63,51400,,US_OFFICIAL,0
+CUST_1354,David Moore,,154944,Seattle,US,0
+CUST_1355,Michael Huff,56,137903,,US_OFFICIAL,0
+CUST_1356,Patricia Parrish,29,112973,San Francisco,US_OFFICIAL,0
+CUST_1357,Mrs. Kathleen Thomas,25,72056,Chicago,US_OFFICIAL,0
+CUST_1358,Rachael Nelson,29,175870,San Francisco,,0
+CUST_1359,Martin Whitaker,26,153227,,US_OFFICIAL,0
+CUST_1360,Francisco Duffy,-3,135648,Seattle,US_OFFICIAL,0
+CUST_1361,Frank Hernandez,63,163109,,USA,1
+CUST_1362,Adam Johnson,36,,San Francisco,USA,0
+CUST_1363,Jamie Floyd,67,179107,,US_OFFICIAL,0
+CUST_1364,Stephen Scott,70,177093,Seattle,US,0
+CUST_1365,Barbara Pena,24,99888,New York,United States,0
+CUST_1366,Gregory Flores,70,,San Francisco,US,0
+CUST_1367,Justin Reeves,62,147241,San Francisco,USA,0
+CUST_1368,Peter Love,54,108684,Austin,US_OFFICIAL,0
+CUST_1369,Brandon Griffin,54,169850,San Francisco,,0
+CUST_1370,Paul Williams,21,68262,San Francisco,,0
+CUST_1371,Carly Farmer,33,137944,,united states,0
+CUST_1372,Sarah Morrison,42,59404,Austin,united states,0
+CUST_1373,Erik Booker,47,120796,,US_OFFICIAL,0
+CUST_1374,Kathy Robinson,64,128905,Seattle,US,0
+CUST_1375,Lisa Herman,31,119637,Chicago,United States,0
+CUST_1376,Keith Nelson,68,47690,,US,0
+CUST_1377,Tyler Roberson,25,76414,Seattle,united states,0
+CUST_1378,Mrs. Heather Ferrell,26,114132,Austin,USA,0
+CUST_1379,Richard Sexton,23,78391,Austin,US,0
+CUST_1380,Tara Keller,45,59951,New York,US,0
+CUST_1381,Tracy Ellis,61,37113,New York,,0
+CUST_1382,Brian Jones,26,95017,,united states,0
+CUST_1383,Calvin Salazar,,113447,San Francisco,USA,0
+CUST_1384,Erin Ray,22,37221,Seattle,US_OFFICIAL,0
+CUST_1385,Daniel Woods,65,142927,San Francisco,US_OFFICIAL,0
+CUST_1386,Mr. Johnny Rodriguez,,135671,Austin,United States,0
+CUST_1387,Mark Jones,59,,Chicago,US_OFFICIAL,0
+CUST_1388,Kayla Hurley,19,114075,Chicago,USA,0
+CUST_1389,Gerald Smith,59,,New York,USA,0
+CUST_1390,Kenneth Rush,22,38163,San Francisco,United States,0
+CUST_1391,Molly Gamble,44,80290,New York,united states,1
+CUST_1392,Anthony Henderson,217,50851,Chicago,united states,0
+CUST_1393,Mary Reyes,43,,San Francisco,US_OFFICIAL,0
+CUST_1394,Charles Lopez,50,75731,Chicago,US_OFFICIAL,0
+CUST_1395,Timothy Christensen,61,116309,San Francisco,,1
+CUST_1396,Matthew Rodgers,,153848,Austin,US_OFFICIAL,0
+CUST_1397,Heather Tapia,29,70969,,,0
+CUST_1398,Melinda Cunningham,51,102960,Austin,USA,0
+CUST_1399,Joanna Walker,,122821,New York,united states,0
+CUST_1400,Teresa James,58,,New York,united states,0
+CUST_1401,Edward Davis,41,61975,New York,US_OFFICIAL,0
+CUST_1402,Daniel Harris,20,38221,,USA,0
+CUST_1403,Russell Green,29,44270,Seattle,US_OFFICIAL,0
+CUST_1404,Shelley Parker,64,55417,Chicago,US_OFFICIAL,0
+CUST_1405,Theresa Gay,207,47039,,united states,0
+CUST_1406,Kristin Baker,37,179989,,united states,0
+CUST_1407,Michael Gonzalez,37,98591,Seattle,united states,0
+CUST_1408,Eric Santiago,64,99258,,USA,0
+CUST_1409,Curtis Ortiz,40,37515,,United States,0
+CUST_1410,Cynthia Logan,64,88790,Seattle,US_OFFICIAL,0
+CUST_1411,Nicole Dean,186,59386,Chicago,US,0
+CUST_1412,Duane Jones,47,57256,,US_OFFICIAL,0
+CUST_1413,Stephanie Gonzalez,22,51327,San Francisco,united states,0
+CUST_1414,Lisa Oconnor,38,138010,Austin,,0
+CUST_1415,Sharon Henderson,22,70680,,US_OFFICIAL,0
+CUST_1416,Andrew Murphy,38,175489,San Francisco,United States,0
+CUST_1417,Scott Gomez,25,,Chicago,,1
+CUST_1418,Bobby Johnson,38,100069,New York,United States,0
+CUST_1419,Mary Lee,29,,Chicago,united states,0
+CUST_1420,Luis Banks,47,71645,,US,0
+CUST_1421,Ashley Franco,26,140010,New York,United States,0
+CUST_1422,Tyler Anderson,70,,Seattle,US,0
+CUST_1423,Jenna Foster,,121913,,US,0
+CUST_1424,Chad Estrada,,138546,,united states,0
+CUST_1425,Erica Smith,,84060,San Francisco,United States,1
+CUST_1426,Richard Powell,33,165781,Seattle,united states,1
+CUST_1427,Ashley Singh,26,172839,Chicago,USA,0
+CUST_1428,Anthony Mullins,68,160746,Austin,US_OFFICIAL,0
+CUST_1429,John Price,42,41832,New York,United States,0
+CUST_1430,Laura French,21,158649,Chicago,US_OFFICIAL,0
+CUST_1431,David Brooks,24,98216,New York,United States,0
+CUST_1432,Jaime Dean,54,136822,San Francisco,United States,0
+CUST_1433,Robin Alvarez,69,129052,,US_OFFICIAL,0
+CUST_1434,Matthew Kim,54,84344,San Francisco,united states,0
+CUST_1435,Yvette Meadows,,92359,New York,US,0
+CUST_1436,Stephanie Adkins,69,81520,,United States,0
+CUST_1437,Colleen Guerrero,27,172965,Austin,United States,0
+CUST_1438,Lori Woods,55,114105,,United States,0
+CUST_1439,William Love,68,162716,Chicago,,0
+CUST_1440,Mr. Samuel Wilson,68,80967,Austin,united states,0
+CUST_1441,Nicholas Norton,62,137655,,US_OFFICIAL,0
+CUST_1442,Kerry Walton,57,62291,,united states,0
+CUST_1443,Nicole Garcia,38,58258,Austin,,0
+CUST_1444,George Stephens,33,126876,New York,United States,1
+CUST_1445,Cassandra Lane,44,143532,Austin,united states,0
+CUST_1446,Alyssa Phillips,,94135,New York,USA,0
+CUST_1447,Sarah Smith,24,,San Francisco,USA,0
+CUST_1448,Jeffrey Schmidt,23,161546,,,0
+CUST_1449,Michelle Thornton,,76183,,US,0
+CUST_1450,Sarah Sherman,,176590,Austin,United States,0
+CUST_1451,Jose Edwards,-10,163699,,USA,1
+CUST_1452,Susan Price,,160915,,USA,0
+CUST_1453,Robert Smith,23,65279,Seattle,United States,0
+CUST_1454,Bradley Clark,23,136587,Seattle,USA,0
+CUST_1455,Roberta Andrade,34,104048,Chicago,USA,1
+CUST_1456,Jermaine Davis,60,,Chicago,,0
+CUST_1457,Aaron Wang,32,136477,Chicago,US_OFFICIAL,0
+CUST_1458,Barbara Cabrera,54,159849,,United States,0
+CUST_1459,Katie Hall,50,170480,Chicago,US_OFFICIAL,0
+CUST_1460,Rebecca Gray,46,78821,San Francisco,USA,1
+CUST_1461,Angela Le,261,73765,New York,US_OFFICIAL,0
+CUST_1462,Lori Gutierrez,53,107404,New York,US_OFFICIAL,0
+CUST_1463,James Crane,51,64496,,united states,0
+CUST_1464,Mrs. Samantha Cox,24,61474,Austin,United States,0
+CUST_1465,Jessica Soto,59,159006,Seattle,US,0
+CUST_1466,Alex Miller,62,138754,New York,United States,0
+CUST_1467,Peter Johnson,41,18713460,Seattle,United States,0
+CUST_1468,Trevor Scott,32,151158,Seattle,United States,0
+CUST_1469,Mark Farmer,,141737,Chicago,,0
+CUST_1470,Tony Johnson,50,52201,Seattle,United States,0
+CUST_1471,Connie Gonzalez,54,8234033,San Francisco,USA,1
+CUST_1472,Michael Dillon,242,106821,Chicago,United States,0
+CUST_1473,Jason Gentry,61,,Seattle,United States,0
+CUST_1474,Jessica Hamilton,55,125242,Austin,USA,0
+CUST_1475,Nathan Butler,36,5833006,San Francisco,USA,0
+CUST_1476,William Taylor,61,142349,,US_OFFICIAL,0
+CUST_1477,Mrs. Jennifer Johnson DVM,18,69685,New York,,0
+CUST_1478,James Shaw,37,107188,Austin,united states,0
+CUST_1479,Mary Huang,37,139111,,US_OFFICIAL,0
+CUST_1480,Pamela Shaw,41,109102,Seattle,United States,1
+CUST_1481,Matthew Jones,58,107583,Austin,United States,0
+CUST_1482,Loretta Keller,33,140931,San Francisco,,0
+CUST_1483,Barbara Walker,36,144724,New York,united states,0
+CUST_1484,Adam Bender,70,93291,Seattle,,0
+CUST_1485,Madison Moore,50,79560,San Francisco,,0
+CUST_1486,Maria Smith,65,82990,New York,,0
+CUST_1487,David Cunningham,37,121852,Austin,United States,0
+CUST_1488,Christopher Navarro,,,Chicago,,1
+CUST_1489,Glenn Castro,50,135052,New York,US_OFFICIAL,0
+CUST_1490,Cynthia Dean,,124828,Seattle,united states,0
+CUST_1491,Erika Valenzuela,29,162816,San Francisco,United States,0
+CUST_1492,Theresa Green,265,79198,Seattle,US_OFFICIAL,0
+CUST_1493,Edward Harris,26,147567,Seattle,united states,0
+CUST_1494,Chad Matthews,-4,38690,Chicago,United States,0
+CUST_1495,Sally Sullivan,58,94314,Austin,,0
+CUST_1496,Erin Rich,55,52114,Austin,US,0
+CUST_1497,Nicholas West,51,70072,Seattle,United States,0
+CUST_1498,Brooke Lee,,140746,San Francisco,US,0
+CUST_1499,Kimberly Ortiz,-9,131099,New York,,0
