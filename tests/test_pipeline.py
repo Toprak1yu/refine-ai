@@ -1,21 +1,21 @@
 import polars as pl
+
 from refine.profiler.stats import profile_dataset
 from refine.tools.cleaner import run_deterministic_clean
+
 
 def test_profiler_detects_outliers():
     # Standart sapmayı düşük tutmak için 30 adet normal veri ve uç değerler ekliyoruz
     ages = [35] * 30 + [-5, 200]
     salaries = [50000] * 30 + [50000, 100000000]
-    
-    df = pl.DataFrame({
-        "age": ages,
-        "salary": salaries
-    })
-    
+
+    df = pl.DataFrame({"age": ages, "salary": salaries})
+
     profile = profile_dataset(df)
-    
+
     # Artık hem age (INVALID_BOUNDS) hem de salary (STATISTICAL_OUTLIER) yakalanmalı
     assert len(profile["critical_issues"]) >= 2
+
 
 def test_cleaner_normalizes_aliases():
     df = pl.DataFrame({"country": ["US", "USA", "United States"]})
@@ -26,12 +26,14 @@ def test_cleaner_normalizes_aliases():
 def test_schema_inference_heuristic():
     from refine.schema_inference import _infer_schema_heuristic
 
-    df = pl.DataFrame({
-        "transaction_id": [f"TX_{i}" for i in range(50)],
-        "description": [f"Desc {i}" for i in range(50)],
-        "amount": [100.0] * 48 + [-10.0, 99999.0],
-        "is_fraud": [0] * 46 + [1] * 4,
-    })
+    df = pl.DataFrame(
+        {
+            "transaction_id": [f"TX_{i}" for i in range(50)],
+            "description": [f"Desc {i}" for i in range(50)],
+            "amount": [100.0] * 48 + [-10.0, 99999.0],
+            "is_fraud": [0] * 46 + [1] * 4,
+        }
+    )
 
     schema = _infer_schema_heuristic(df)
     assert "transaction_id" in schema.id_columns
@@ -42,15 +44,18 @@ def test_schema_inference_heuristic():
 
 
 def test_generic_pipeline_arbitrary_dataset(tmp_path):
-    from refine.graph import build_pipeline_graph
-    from langgraph.types import Command
     from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.types import Command
 
-    df = pl.DataFrame({
-        "order_id": [f"ORD_{i}" for i in range(60)],
-        "amount": [100.0] * 58 + [50000.0, None],
-        "status": [1] * 55 + [0] * 5,
-    })
+    from refine.graph import build_pipeline_graph
+
+    df = pl.DataFrame(
+        {
+            "order_id": [f"ORD_{i}" for i in range(60)],
+            "amount": [100.0] * 58 + [50000.0, None],
+            "status": [1] * 55 + [0] * 5,
+        }
+    )
 
     in_file = str(tmp_path / "orders.csv")
     out_file = str(tmp_path / "clean_orders.csv")
@@ -90,13 +95,15 @@ def test_generic_pipeline_arbitrary_dataset(tmp_path):
 
 
 def test_manual_input_strategy():
+    from refine.schema_inference import ColumnSchema, DatasetSchema
     from refine.tools.transformer import apply_human_resolutions
-    from refine.schema_inference import DatasetSchema, ColumnSchema
 
-    df = pl.DataFrame({
-        "score": [50, 55, 60, None, 9999],
-        "category": ["A", "B", None, "A", "B"],
-    })
+    df = pl.DataFrame(
+        {
+            "score": [50, 55, 60, None, 9999],
+            "category": ["A", "B", None, "A", "B"],
+        }
+    )
 
     schema = DatasetSchema(
         columns={
@@ -118,3 +125,161 @@ def test_manual_input_strategy():
     assert clean_df["category"].to_list() == ["A", "B", "DefaultCat", "A", "B"]
     assert any("override value '75'" in log for log in logs)
     assert any("override value 'DefaultCat'" in log for log in logs)
+
+
+def test_seed_reproducibility():
+    from refine.schema_inference import ColumnSchema, DatasetSchema
+    from refine.tools.synthesizer import set_seed, synthesize_minority_class
+
+    df = pl.DataFrame(
+        {
+            "id": list(range(20)),
+            "score": [50.0 + i for i in range(20)],
+            "label": [0] * 18 + [1] * 2,
+        }
+    )
+    schema = DatasetSchema(
+        columns={
+            "id": ColumnSchema(role="id", semantic_type="id"),
+            "score": ColumnSchema(role="feature", semantic_type="numerical"),
+            "label": ColumnSchema(role="target", semantic_type="categorical"),
+        },
+        id_columns=["id"],
+        target_column="label",
+    )
+
+    set_seed(42)
+    syn1, _ = synthesize_minority_class(df, "label", target_ratio=0.3, schema=schema)
+
+    set_seed(42)
+    syn2, _ = synthesize_minority_class(df, "label", target_ratio=0.3, schema=schema)
+
+    set_seed(999)
+    syn3, _ = synthesize_minority_class(df, "label", target_ratio=0.3, schema=schema)
+
+    # Identical seed -> identical results
+    assert syn1["score"].to_list() == syn2["score"].to_list()
+    # Different seed -> differing values
+    assert syn1["score"].to_list() != syn3["score"].to_list()
+
+
+def test_input_validation(tmp_path):
+    from pathlib import Path
+
+    import pytest
+    import typer
+
+    from refine.cli import _validate_input_file
+
+    # Non-existent file
+    with pytest.raises(typer.Exit):
+        _validate_input_file(Path(tmp_path / "non_existent.csv"))
+
+    # Empty file
+    empty_file = Path(tmp_path / "empty.csv")
+    empty_file.touch()
+    with pytest.raises(typer.Exit):
+        _validate_input_file(empty_file)
+
+    # Corrupt CSV
+    corrupt_file = Path(tmp_path / "corrupt.csv")
+    corrupt_file.write_text("col1,col2\n1\n2,3,4,5\n", encoding="utf-8")
+    # Some corrupt structures raise Exit or parser exception caught by _validate_input_file
+    with pytest.raises(typer.Exit):
+        _validate_input_file(corrupt_file)
+
+
+def test_cli_profile_command(tmp_path):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    runner = CliRunner()
+    sample_csv = tmp_path / "test_sample.csv"
+    df = pl.DataFrame({"x": [1, 2, 3, 1000], "y": ["a", "b", "c", "d"]})
+    df.write_csv(str(sample_csv))
+
+    result = runner.invoke(app, ["profile", str(sample_csv)])
+    assert result.exit_code == 0
+    assert "Profiling dataset:" in result.output
+    assert "x" in result.output
+    assert "y" in result.output
+
+
+def test_cli_reset_command(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+
+    # Create dummy checkpoint files
+    (tmp_path / ".checkpoints.db").write_text("mock sqlite")
+    (tmp_path / ".checkpoints.db-wal").write_text("mock wal")
+
+    result = runner.invoke(app, ["reset", "--yes"])
+    assert result.exit_code == 0
+    assert "Checkpoints reset successfully." in result.output
+    assert "Deleted: .checkpoints.db" in result.output
+    assert not (tmp_path / ".checkpoints.db").exists()
+    assert not (tmp_path / ".checkpoints.db-wal").exists()
+
+
+def test_post_remediation_and_telemetry(tmp_path):
+    from langgraph.checkpoint.memory import MemorySaver
+    from langgraph.types import Command
+
+    from refine.graph import build_pipeline_graph
+
+    df = pl.DataFrame(
+        {
+            "id": [f"ID_{i}" for i in range(50)],
+            "val": [10.0] * 48 + [-999.0, 999.0],
+            "target": [1] * 45 + [0] * 5,
+        }
+    )
+    in_file = str(tmp_path / "input.csv")
+    out_file = str(tmp_path / "output.csv")
+    df.write_csv(in_file)
+
+    checkpointer = MemorySaver()
+    graph = build_pipeline_graph().compile(checkpointer=checkpointer)
+    config = {"configurable": {"thread_id": "session_telemetry_test"}}
+
+    initial_state = {
+        "raw_file_path": in_file,
+        "processed_file_path": out_file,
+        "initial_row_count": 0,
+        "records": [],
+        "inferred_schema": None,
+        "schema_method": None,
+        "profile": None,
+        "critical_issues": [],
+        "expert_advice": None,
+        "human_resolutions": {},
+        "audit_trail": [],
+        "is_completed": False,
+        "session_id": "session_telemetry_test",
+        "random_seed": 1234,
+        "start_time": "2026-09-11T12:00:00",
+        "end_time": None,
+        "execution_duration_sec": None,
+    }
+
+    graph.invoke(initial_state, config=config)
+    graph.invoke(
+        Command(resume={"val": "STATISTICAL_IMPUTE", "target": "SYNTHETIC_SYNTHESIS"}),
+        config=config,
+    )
+
+    final_state = graph.get_state(config).values
+    assert final_state["is_completed"] is True
+    assert final_state["session_id"] == "session_telemetry_test"
+    assert final_state["random_seed"] == 1234
+    assert final_state["execution_duration_sec"] is not None
+    assert final_state["execution_duration_sec"] >= 0
+
+    # Verification node checked residual issues
+    trail = " ".join(final_state["audit_trail"])
+    assert "Verification" in trail or "clean" in trail.lower()

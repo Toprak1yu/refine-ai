@@ -1,37 +1,42 @@
+import os
 import sqlite3
+from datetime import datetime
 from pathlib import Path
-from typing import Dict
-import typer
-from rich.console import Console
-from rich.panel import Panel
-from rich.prompt import Prompt
-from rich.table import Table
 
+import polars as pl
+import typer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Confirm, Prompt
+from rich.table import Table
 
+from refine import __version__
 from refine.graph import build_pipeline_graph
+from refine.logger import setup_logger
 from refine.profiler.reporters import render_profile_table
+from refine.profiler.stats import profile_dataset
+from refine.schema_inference import infer_schema
 
 app = typer.Typer(
     name="refine",
     help="refine-ai: Autonomous Data Pipeline & Synthesis Agent with HITL Governance.",
-    no_args_is_help=True,
     add_completion=False,
 )
 console = Console()
+logger = setup_logger()
 
 
-def render_interrupt_ui(interrupt_payload: dict) -> Dict[str, str]:
+def render_interrupt_ui(interrupt_payload: dict) -> dict[str, str]:
     """Displays LLM advice and collects human decisions for anomalous features."""
-    # Display Senior Data Engineer / LLM Advice Panel
     expert_advice = interrupt_payload.get("expert_advice")
     if expert_advice:
         console.print(
             Panel(
                 f"[bold cyan]🧠 Senior Data Architect Reasoning (via RULES.md):[/bold cyan]\n\n{expert_advice}",
                 border_style="cyan",
-                title="Agent Guidance"
+                title="Agent Guidance",
             )
         )
 
@@ -49,8 +54,9 @@ def render_interrupt_ui(interrupt_payload: dict) -> Dict[str, str]:
     console.print(table)
     console.print(f"\n[bold]Available Remediation Strategies:[/bold] [green]{', '.join(strategies)}[/green]\n")
 
-    decisions: Dict[str, str] = {}
-    unique_columns = list({issue["column"] for issue in issues})
+    decisions: dict[str, str] = {}
+    # Preserve deterministic order matching the issues table
+    unique_columns = list(dict.fromkeys(issue["column"] for issue in issues))
 
     for col in unique_columns:
         prompt_text = (
@@ -59,7 +65,8 @@ def render_interrupt_ui(interrupt_payload: dict) -> Dict[str, str]:
         )
         choice = Prompt.ask(
             prompt_text,
-            choices=["1", "2", "3", "4", "DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS", "MANUAL_INPUT"]
+            choices=["1", "2", "3", "4", "DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS", "MANUAL_INPUT"],
+            default="2",
         )
 
         mapping = {
@@ -73,52 +80,87 @@ def render_interrupt_ui(interrupt_payload: dict) -> Dict[str, str]:
             "MANUAL_INPUT": "MANUAL_INPUT",
         }
         selected_strategy = mapping[choice]
-        
+
         if selected_strategy in strategies:
             if selected_strategy == "MANUAL_INPUT":
                 override_val = Prompt.ask(f" Enter manual override value for '[bold cyan]{col}[/bold cyan]'")
                 decisions[col] = f"MANUAL_INPUT:{override_val}"
-                console.print(f" -> Assigned [bold green]MANUAL_INPUT[/bold green] (value: '{override_val}') to '[bold cyan]{col}[/bold cyan]'")
+                console.print(
+                    f" -> Assigned [bold green]MANUAL_INPUT[/bold green] (value: '{override_val}') to '[bold cyan]{col}[/bold cyan]'"
+                )
             else:
                 decisions[col] = selected_strategy
-                console.print(f" -> Assigned [bold green]{selected_strategy}[/bold green] to '[bold cyan]{col}[/bold cyan]'")
+                console.print(
+                    f" -> Assigned [bold green]{selected_strategy}[/bold green] to '[bold cyan]{col}[/bold cyan]'"
+                )
         else:
             console.print(f" -> [bold red]Invalid strategy:[/bold red] {choice}")
-            console.print(f" -> [bold red]Available strategies:[/bold red] {', '.join(strategies)}")
-            console.print(f" -> [bold red]Please select a valid strategy.[/bold red]")
             return {}
 
     return decisions
 
 
+def _validate_input_file(file_path: Path) -> None:
+    """Validates that input raw data file exists, is readable, and non-empty."""
+    if not file_path.exists():
+        console.print(f"\n[bold red]Error:[/bold red] Target raw data file '{file_path}' not found.\n")
+        logger.error(f"File not found: {file_path}")
+        raise typer.Exit(code=1)
+
+    if file_path.stat().st_size == 0:
+        console.print(f"\n[bold red]Error:[/bold red] Target file '{file_path}' is empty (0 bytes).\n")
+        logger.error(f"Empty file: {file_path}")
+        raise typer.Exit(code=1)
+
+    try:
+        # Quick sniff to check CSV parsing validity
+        sample = pl.read_csv(file_path, n_rows=5)
+        if sample.width == 0:
+            console.print(f"\n[bold red]Error:[/bold red] Target file '{file_path}' contains no valid columns.\n")
+            raise typer.Exit(code=1) from None
+    except Exception as e:
+        console.print(f"\n[bold red]Error parsing CSV file '{file_path}':[/bold red] {e}\n")
+        logger.error(f"CSV parse failure on {file_path}: {e}")
+        raise typer.Exit(code=1) from None
+
+
 @app.command()
 def run(
     file: str = typer.Option("data/raw/dirty_customers.csv", "--file", "-f", help="Input raw CSV path"),
-    output: str = typer.Option("data/processed/clean_customers.csv", "--output", "-o", help="Processed target CSV path"),
+    output: str = typer.Option(
+        "data/processed/clean_customers.csv", "--output", "-o", help="Processed target CSV path"
+    ),
     thread_id: str = typer.Option("session_001", "--thread-id", "-t", help="Checkpoint session thread ID"),
-    model: str = typer.Option("qwen2.5-coder:14b", "--model", "-m", help="Ollama LLM model name for reasoning & inference"),
+    model: str = typer.Option(
+        "qwen2.5-coder:14b", "--model", "-m", help="Ollama LLM model name for reasoning & inference"
+    ),
+    seed: int = typer.Option(42, "--seed", "-s", help="Random seed for deterministic reproducibility"),
 ):
     """Executes the pipeline graph, gracefully pausing on anomalies for human governance."""
     raw_path = Path(file)
-    if not raw_path.exists():
-        console.print(f"[bold red]Error:[/bold red] Target raw data file '{file}' not found.")
-        raise typer.Exit(code=1)
+    _validate_input_file(raw_path)
 
-    import os
     if model:
         os.environ["OLLAMA_MODEL"] = model
 
     db_path = Path(".checkpoints.db")
-    conn = sqlite3.connect(str(db_path), check_same_thread=False)
-    checkpointer = SqliteSaver(conn)
+    try:
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        checkpointer = SqliteSaver(conn)
+    except Exception as e:
+        console.print(f"\n[bold red]Database Error:[/bold red] Could not initialize checkpoint database: {e}\n")
+        logger.error(f"SqliteSaver initialization error: {e}")
+        raise typer.Exit(code=1) from None
 
     # Compile graph with persistent memory
     graph = build_pipeline_graph().compile(checkpointer=checkpointer)
     config = {"configurable": {"thread_id": thread_id}}
 
-    console.print(f"\n[bold green]► Initializing pipeline for:[/bold green] [cyan]{file}[/cyan] (Session: {thread_id})\n")
+    console.print(
+        f"\n[bold green]► Initializing refine-ai pipeline:[/bold green] [cyan]{file}[/cyan] "
+        f"(Session: [yellow]{thread_id}[/yellow], Seed: [yellow]{seed}[/yellow])\n"
+    )
 
-    # Initial state
     initial_state = {
         "raw_file_path": str(raw_path),
         "processed_file_path": output,
@@ -132,43 +174,159 @@ def run(
         "human_resolutions": {},
         "audit_trail": [],
         "is_completed": False,
+        "session_id": thread_id,
+        "random_seed": seed,
+        "start_time": datetime.now().isoformat(),
+        "end_time": None,
+        "execution_duration_sec": None,
     }
 
-    # Step 1: Run graph until completion or interrupt
-    result = graph.invoke(initial_state, config=config)
+    try:
+        # Step 1: Run graph until completion or interrupt
+        graph.invoke(initial_state, config=config)
 
-    # Check if graph paused due to interrupt()
-    state_snapshot = graph.get_state(config)
+        # Check if graph paused due to interrupt()
+        state_snapshot = graph.get_state(config)
 
-    # Display dataset profile if available
-    profile_data = state_snapshot.values.get("profile")
-    if profile_data:
-        render_profile_table(profile_data)
+        # Display dataset profile if available
+        profile_data = state_snapshot.values.get("profile")
+        if profile_data:
+            render_profile_table(profile_data)
 
-    if state_snapshot.tasks and any(task.interrupts for task in state_snapshot.tasks):
-        # Extract the interrupt payload
-        interrupt_info = state_snapshot.tasks[0].interrupts[0].value
-        human_decisions = render_interrupt_ui(interrupt_info)
+        if state_snapshot.tasks and any(task.interrupts for task in state_snapshot.tasks):
+            interrupt_info = state_snapshot.tasks[0].interrupts[0].value
+            human_decisions = render_interrupt_ui(interrupt_info)
 
-        console.print("\n[bold green]► Resuming execution graph with human decisions...[/bold green]\n")
-        # Step 2: Resume graph with Command(resume=...)
-        result = graph.invoke(Command(resume=human_decisions), config=config)
+            console.print("\n[bold green]► Resuming execution graph with human decisions...[/bold green]\n")
+            # Step 2: Resume graph with Command(resume=...)
+            graph.invoke(Command(resume=human_decisions), config=config)
 
-    # Final Summary & Audit Report
-    final_state = graph.get_state(config).values
-    console.print(Panel.fit("[bold green]✓ PIPELINE EXECUTION COMPLETED[/bold green]", border_style="green"))
+        # Final Summary & Audit Report
+        final_state = graph.get_state(config).values
+        console.print(Panel.fit("[bold green]✓ PIPELINE EXECUTION COMPLETED[/bold green]", border_style="green"))
 
-    console.print("\n[bold cyan]Audit Log Trail:[/bold cyan]")
-    for entry in final_state.get("audit_trail", []):
-        console.print(f" [dim]•[/dim] {entry}")
+        console.print("\n[bold cyan]Audit Log Trail:[/bold cyan]")
+        for entry in final_state.get("audit_trail", []):
+            console.print(f" [dim]•[/dim] {entry}")
 
-    console.print(f"\n[bold]Output Dataset:[/bold] [green]{final_state.get('processed_file_path')}[/green]\n")
+        console.print(f"\n[bold]Output Dataset:[/bold] [green]{final_state.get('processed_file_path')}[/green]\n")
+
+    except Exception as e:
+        console.print(f"\n[bold red]Pipeline Execution Failed:[/bold red] {e}\n")
+        logger.exception(f"Unhandled error during pipeline run: {e}")
+        raise typer.Exit(code=1) from None
+
+
+@app.command()
+def profile(
+    file: str = typer.Argument(..., help="Path to raw CSV file to profile"),
+    model: str = typer.Option("qwen2.5-coder:14b", "--model", "-m", help="Ollama LLM model name"),
+):
+    """Profiles a dataset and inspects anomalies without modifying or writing data."""
+    raw_path = Path(file)
+    _validate_input_file(raw_path)
+
+    if model:
+        os.environ["OLLAMA_MODEL"] = model
+
+    console.print(f"\n[bold blue]► Profiling dataset:[/bold blue] [cyan]{file}[/cyan]\n")
+
+    try:
+        df = pl.read_csv(raw_path)
+        schema, method = infer_schema(df)
+        prof = profile_dataset(df, schema.model_dump())
+        render_profile_table(prof)
+        console.print(f"[dim]Schema inferred using method: [bold cyan]{method}[/bold cyan][/dim]\n")
+    except Exception as e:
+        console.print(f"\n[bold red]Profiling Error:[/bold red] {e}\n")
+        logger.exception(f"Profile command failed: {e}")
+        raise typer.Exit(code=1) from None
+
+
+@app.command()
+def reset(
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompt and reset checkpoints immediately"),
+):
+    """Cleans all session checkpoints and resets execution state."""
+    db_files = [Path(".checkpoints.db"), Path(".checkpoints.db-shm"), Path(".checkpoints.db-wal")]
+    existing = [f for f in db_files if f.exists()]
+
+    if not existing:
+        console.print("[dim]No checkpoint databases found. Nothing to reset.[/dim]")
+        return
+
+    if not yes:
+        confirmed = Confirm.ask(f"Are you sure you want to delete {len(existing)} checkpoint file(s)?")
+        if not confirmed:
+            console.print("[yellow]Reset cancelled.[/yellow]")
+            return
+
+    for f in existing:
+        try:
+            f.unlink()
+            console.print(f" [green]✓ Deleted:[/green] {f.name}")
+            logger.info(f"Deleted checkpoint file: {f}")
+        except Exception as e:
+            console.print(f" [red]✗ Could not delete {f.name}:[/red] {e}")
+
+    console.print("[bold green]✓ Checkpoints reset successfully.[/bold green]")
+
+
+@app.command()
+def status(
+    thread_id: str = typer.Argument(..., help="Session thread ID to inspect"),
+):
+    """Inspects the state and progress of a checkpointed session."""
+    db_path = Path(".checkpoints.db")
+    if not db_path.exists():
+        console.print("[yellow]No checkpoint database found (.checkpoints.db). Run a pipeline first.[/yellow]")
+        return
+
+    try:
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        checkpointer = SqliteSaver(conn)
+        graph = build_pipeline_graph().compile(checkpointer=checkpointer)
+        config = {"configurable": {"thread_id": thread_id}}
+
+        state = graph.get_state(config)
+        if not state.values:
+            console.print(f"[yellow]No session found with Thread ID:[/yellow] [bold cyan]{thread_id}[/bold cyan]")
+            return
+
+        vals = state.values
+        table = Table(title=f"Session Status: {thread_id}")
+        table.add_column("Property", style="cyan")
+        table.add_column("Value", style="white")
+
+        table.add_row("Raw File", str(vals.get("raw_file_path", "N/A")))
+        table.add_row("Processed File", str(vals.get("processed_file_path", "N/A")))
+        table.add_row(
+            "Is Completed", "[green]Yes[/green]" if vals.get("is_completed") else "[yellow]No (Paused/Active)[/yellow]"
+        )
+        table.add_row("Start Time", str(vals.get("start_time", "N/A")))
+        table.add_row("End Time", str(vals.get("end_time", "N/A")))
+        dur = vals.get("execution_duration_sec")
+        table.add_row("Duration", f"{dur:.2f}s" if dur else "N/A")
+        table.add_row("Seed", str(vals.get("random_seed", "N/A")))
+        table.add_row(
+            "Interrupted",
+            "[bold red]Yes (Waiting for Human Input)[/bold red]"
+            if (state.tasks and any(t.interrupts for t in state.tasks))
+            else "[green]No[/green]",
+        )
+
+        console.print(table)
+
+    except Exception as e:
+        console.print(f"[bold red]Status query failed:[/bold red] {e}")
+        logger.exception(f"Status query failure for {thread_id}: {e}")
+
 
 @app.command()
 def version():
-    """Prints the CLI version."""
-    from refine import __version__
+    """Prints the CLI version and environment details."""
     console.print(f"[bold green]refine-ai v{__version__}[/bold green]")
+
 
 if __name__ == "__main__":
     app()

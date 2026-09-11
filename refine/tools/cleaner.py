@@ -1,20 +1,17 @@
 """Schema-driven deterministic cleaner. Applies alias mappings from inferred schema."""
 
-from typing import List, Optional, Tuple
-
 import polars as pl
+
 from refine.schema_inference import DatasetSchema, infer_schema
 
 
-def run_deterministic_clean(
-    df: pl.DataFrame, schema: Optional[DatasetSchema] = None
-) -> Tuple[pl.DataFrame, List[str]]:
+def run_deterministic_clean(df: pl.DataFrame, schema: DatasetSchema | None = None) -> tuple[pl.DataFrame, list[str]]:
     """Applies unambiguous sanitation operations without requiring human consent.
 
     When a DatasetSchema is provided, alias mappings are read from the schema.
     If schema is None, it is automatically inferred.
     """
-    logs: List[str] = []
+    logs: list[str] = []
 
     if schema is None:
         schema, _ = infer_schema(df)

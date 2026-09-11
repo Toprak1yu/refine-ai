@@ -1,7 +1,5 @@
 """Schema-driven human resolution executor. Applies strategies based on inferred column types."""
 
-from typing import Dict, List, Optional, Tuple
-
 import numpy as np
 import polars as pl
 
@@ -11,15 +9,15 @@ from refine.tools.synthesizer import synthesize_minority_class, synthesize_numer
 
 def apply_human_resolutions(
     df: pl.DataFrame,
-    resolutions: Dict[str, str],
-    schema: Optional[DatasetSchema] = None,
-) -> Tuple[pl.DataFrame, List[str]]:
+    resolutions: dict[str, str],
+    schema: DatasetSchema | None = None,
+) -> tuple[pl.DataFrame, list[str]]:
     """Applies human-approved remediation strategies to anomalous features.
 
     Uses the inferred DatasetSchema to determine valid bounds and column roles
     instead of hardcoded column names.
     """
-    audit_logs: List[str] = []
+    audit_logs: list[str] = []
     schema = schema or DatasetSchema()
 
     for column, strategy in resolutions.items():
@@ -64,15 +62,11 @@ def apply_human_resolutions(
                 df, logs = _impute_categorical(df, column)
                 audit_logs.extend(logs)
             else:
-                audit_logs.append(
-                    f"STATISTICAL_IMPUTE skipped for '{column}': unsupported type '{col_type}'."
-                )
+                audit_logs.append(f"STATISTICAL_IMPUTE skipped for '{column}': unsupported type '{col_type}'.")
 
         # ── SYNTHETIC_SYNTHESIS ──────────────────────────────────
         elif strategy == "SYNTHETIC_SYNTHESIS":
-            is_target = (
-                col_schema and col_schema.role == "target"
-            ) or column == schema.target_column
+            is_target = (col_schema and col_schema.role == "target") or column == schema.target_column
 
             if is_target:
                 target_ratio = 0.35
@@ -82,9 +76,7 @@ def apply_human_resolutions(
                 audit_logs.extend(syn_logs)
             elif is_numerical:
                 bounds = (col_schema.valid_bounds if col_schema else None) or [0, None]
-                df, syn_logs = synthesize_numerical_feature(
-                    df, column=column, valid_bounds=bounds
-                )
+                df, syn_logs = synthesize_numerical_feature(df, column=column, valid_bounds=bounds)
                 audit_logs.extend(syn_logs)
             else:
                 audit_logs.append(
@@ -112,10 +104,10 @@ def _apply_manual_override(
     df: pl.DataFrame,
     column: str,
     raw_val: str,
-    col_schema: Optional[object] = None,
-) -> Tuple[pl.DataFrame, List[str]]:
+    col_schema: object | None = None,
+) -> tuple[pl.DataFrame, list[str]]:
     """Replaces anomalies (nulls, out-of-bounds, |Z|>3) with an operator-provided manual value."""
-    logs: List[str] = []
+    logs: list[str] = []
     col_type = str(df.schema[column])
 
     try:
@@ -152,24 +144,21 @@ def _apply_manual_override(
 
     replaced_count = df.filter(anomaly_filter).height
 
-    df = df.with_columns(
-        pl.when(anomaly_filter)
-        .then(pl.lit(typed_val))
-        .otherwise(pl.col(column))
-        .alias(column)
-    )
+    df = df.with_columns(pl.when(anomaly_filter).then(pl.lit(typed_val)).otherwise(pl.col(column)).alias(column))
 
-    logs.append(f"Applied MANUAL_INPUT on '{column}': replaced {replaced_count} anomalous records with override value '{typed_val}'.")
+    logs.append(
+        f"Applied MANUAL_INPUT on '{column}': replaced {replaced_count} anomalous records with override value '{typed_val}'."
+    )
     return df, logs
 
 
 def _impute_numerical(
     df: pl.DataFrame,
     column: str,
-    col_schema: Optional[object] = None,
-) -> Tuple[pl.DataFrame, List[str]]:
+    col_schema: object | None = None,
+) -> tuple[pl.DataFrame, list[str]]:
     """Imputes anomalous numerical values (nulls, out-of-bounds, |Z|>3) with the median of valid records."""
-    logs: List[str] = []
+    logs: list[str] = []
 
     non_nulls = df[column].drop_nulls().to_numpy()
     if len(non_nulls) == 0:
@@ -199,22 +188,15 @@ def _impute_numerical(
     if "Int" in col_dtype:
         median_val = int(median_val)
 
-    df = df.with_columns(
-        pl.when(anomaly_filter)
-        .then(median_val)
-        .otherwise(pl.col(column))
-        .alias(column)
-    )
+    df = df.with_columns(pl.when(anomaly_filter).then(median_val).otherwise(pl.col(column)).alias(column))
 
     logs.append(f"Applied STATISTICAL_IMPUTE on '{column}': imputed anomalies with median ({median_val}).")
     return df, logs
 
 
-def _impute_categorical(
-    df: pl.DataFrame, column: str
-) -> Tuple[pl.DataFrame, List[str]]:
+def _impute_categorical(df: pl.DataFrame, column: str) -> tuple[pl.DataFrame, list[str]]:
     """Imputes missing categorical values with the mode (most frequent value)."""
-    logs: List[str] = []
+    logs: list[str] = []
 
     mode_df = df[column].drop_nulls().value_counts().sort("count", descending=True)
     if mode_df.height == 0:
@@ -224,10 +206,7 @@ def _impute_categorical(
     mode_val = mode_df[column][0]
 
     df = df.with_columns(
-        pl.when(pl.col(column).is_null())
-        .then(pl.lit(mode_val))
-        .otherwise(pl.col(column))
-        .alias(column)
+        pl.when(pl.col(column).is_null()).then(pl.lit(mode_val)).otherwise(pl.col(column)).alias(column)
     )
 
     logs.append(f"Applied STATISTICAL_IMPUTE on '{column}': imputed nulls with mode ('{mode_val}').")

@@ -1,7 +1,7 @@
 # refine/tools/reporter.py
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 def generate_markdown_audit(
@@ -9,9 +9,10 @@ def generate_markdown_audit(
     processed_path: str,
     initial_rows: int,
     final_rows: int,
-    resolutions: Dict[str, str],
-    audit_trail: List[str],
-    expert_advice: Optional[str] = None,
+    resolutions: dict[str, str],
+    audit_trail: list[str],
+    expert_advice: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> str:
     """Generates an executive-ready Markdown audit report documenting all data pipeline operations."""
     report_path = Path(processed_path).with_name(f"{Path(processed_path).stem}_audit_report.md")
@@ -28,13 +29,22 @@ def generate_markdown_audit(
 
     audit_bullets = "\n".join([f"- {log}" for log in audit_trail])
 
+    meta = metadata or {}
+    meta_lines = []
+    if meta.get("session_id"):
+        meta_lines.append(f"- **Session ID:** `{meta['session_id']}`")
+    if meta.get("execution_duration_sec") is not None:
+        meta_lines.append(f"- **Execution Duration:** {meta['execution_duration_sec']:.2f}s")
+    if meta.get("random_seed") is not None:
+        meta_lines.append(f"- **Random Seed:** {meta['random_seed']}")
+    meta_str = ("\n".join(meta_lines) + "\n") if meta_lines else ""
+
     # F-string başlangıcı
     report_content = f"""# Data Pipeline Audit & Governance Report
-**Execution Date:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}  
-**Raw Source:** `{raw_path}`  
-**Target Destination:** `{processed_path}`  
-
----
+- **Execution Date:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+- **Raw Source:** `{raw_path}`
+- **Target Destination:** `{processed_path}`
+{meta_str}---
 
 ## Executive Summary
 | Metric | Initial State | Final State | Delta |

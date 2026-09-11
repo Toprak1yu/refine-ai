@@ -3,48 +3,50 @@
 import json
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+import urllib.request
+from typing import Any
 
 import numpy as np
 import polars as pl
 from pydantic import BaseModel, Field
 
-
 # ────────────────────────────────────────────────────────────────────
 # Schema Models
 # ────────────────────────────────────────────────────────────────────
 
+
 class ColumnSchema(BaseModel):
     """Schema definition for a single dataset column."""
+
     role: str = Field(description="One of: id, target, feature, ignore")
     semantic_type: str = Field(description="One of: numerical, categorical, binary, text")
-    valid_bounds: Optional[List[float]] = Field(
+    valid_bounds: list[float] | None = Field(
         default=None, description="[min, max] valid domain range for numerical columns"
     )
-    canonical_aliases: Optional[Dict[str, List[str]]] = Field(
+    canonical_aliases: dict[str, list[str]] | None = Field(
         default=None, description="Canonical value -> list of known aliases for categorical columns"
     )
-    minority_class_value: Optional[Any] = Field(
-        default=None, description="Minority class value for binary target columns"
-    )
-    description: Optional[str] = None
+    minority_class_value: Any | None = Field(default=None, description="Minority class value for binary target columns")
+    description: str | None = None
 
 
 class DatasetSchema(BaseModel):
     """Complete inferred schema for a dataset."""
-    id_columns: List[str] = []
-    target_column: Optional[str] = None
-    ignore_columns: List[str] = []
-    columns: Dict[str, ColumnSchema] = {}
+
+    id_columns: list[str] = []
+    target_column: str | None = None
+    ignore_columns: list[str] = []
+    columns: dict[str, ColumnSchema] = {}
 
 
 # ────────────────────────────────────────────────────────────────────
 # Dataset Summary Builder (LLM'e gönderilecek özet)
 # ────────────────────────────────────────────────────────────────────
 
+
 def _build_dataset_summary(df: pl.DataFrame) -> str:
     """Builds a concise text summary of the dataset for LLM consumption."""
-    lines: List[str] = []
+    lines: list[str] = []
     lines.append(f"Total rows: {df.height}, Total columns: {df.width}")
     lines.append("")
     lines.append(f"{'Column':<25} {'Type':<10} {'Nulls':<8} {'Null%':<8} {'Unique':<8} {'Sample Values'}")
@@ -64,10 +66,7 @@ def _build_dataset_summary(df: pl.DataFrame) -> str:
         lines.append(f"{col:<25} {col_type:<10} {null_count:<8} {null_pct:<8} {unique_count:<8} {sample_str}")
 
     # Numerical column statistics
-    numerical_cols = [
-        col for col in df.columns
-        if str(df.schema[col]) in ("Int32", "Int64", "Float32", "Float64")
-    ]
+    numerical_cols = [col for col in df.columns if str(df.schema[col]) in ("Int32", "Int64", "Float32", "Float64")]
     if numerical_cols:
         lines.append("")
         lines.append("Numerical Statistics:")
@@ -120,9 +119,6 @@ Rules:
 - Output ONLY valid JSON. No markdown fences, no explanation text."""
 
 
-import urllib.request
-
-
 def _is_ollama_online(base_url: str) -> bool:
     """Fast check (timeout 0.3s) if local Ollama daemon is reachable."""
     try:
@@ -133,9 +129,7 @@ def _is_ollama_online(base_url: str) -> bool:
         return False
 
 
-def _infer_schema_with_llm(
-    df: pl.DataFrame, model_name: Optional[str] = None
-) -> Optional[DatasetSchema]:
+def _infer_schema_with_llm(df: pl.DataFrame, model_name: str | None = None) -> DatasetSchema | None:
     """Attempts to infer dataset schema using a local Ollama LLM."""
     model = model_name or os.getenv("OLLAMA_MODEL", "qwen2.5-coder:14b")
     base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
@@ -145,18 +139,20 @@ def _infer_schema_with_llm(
         return None
 
     try:
+        from langchain_core.messages import HumanMessage, SystemMessage
         from langchain_ollama import ChatOllama
-        from langchain_core.messages import SystemMessage, HumanMessage
 
         llm = ChatOllama(model=model, base_url=base_url, temperature=0.0, timeout=10.0)
 
         summary = _build_dataset_summary(df)
         user_prompt = f"Analyze this dataset and return the JSON schema:\n\n{summary}"
 
-        response = llm.invoke([
-            SystemMessage(content=_LLM_SYSTEM_PROMPT),
-            HumanMessage(content=user_prompt),
-        ])
+        response = llm.invoke(
+            [
+                SystemMessage(content=_LLM_SYSTEM_PROMPT),
+                HumanMessage(content=user_prompt),
+            ]
+        )
 
         raw = response.content.strip()
 
@@ -193,14 +189,13 @@ _TARGET_PATTERNS = re.compile(
 
 def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
     """Pure rule-based schema inference — no external model required."""
-    columns: Dict[str, ColumnSchema] = {}
-    id_columns: List[str] = []
-    ignore_columns: List[str] = []
-    target_candidates: List[str] = []
+    columns: dict[str, ColumnSchema] = {}
+    id_columns: list[str] = []
+    ignore_columns: list[str] = []
+    target_candidates: list[str] = []
 
     for col in df.columns:
         col_type = str(df.schema[col])
-        null_count = df[col].null_count()
         non_null = df[col].drop_nulls()
         unique_count = non_null.n_unique()
         total_non_null = non_null.len()
@@ -219,10 +214,7 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
             continue
 
         # ── 2. Ignore columns (free text, comments, names, addresses) ────
-        if is_string and (
-            _IGNORE_PATTERNS.search(col)
-            or (uniqueness_ratio > 0.7 and unique_count > 30)
-        ):
+        if is_string and (_IGNORE_PATTERNS.search(col) or (uniqueness_ratio > 0.7 and unique_count > 30)):
             ignore_columns.append(col)
             columns[col] = ColumnSchema(
                 role="ignore",
@@ -290,7 +282,7 @@ def _detect_minority_class(df: pl.DataFrame, col: str) -> Any:
     return val_counts[col][0]
 
 
-def _estimate_bounds(df: pl.DataFrame, col: str) -> Optional[List[float]]:
+def _estimate_bounds(df: pl.DataFrame, col: str) -> list[float] | None:
     """Estimates valid domain bounds using Tukey's robust IQR (Interquartile Range) method.
     Purely mathematical; contains zero hardcoded column names.
     """
@@ -313,20 +305,18 @@ def _estimate_bounds(df: pl.DataFrame, col: str) -> Optional[List[float]]:
     return [round(float(lower), 2), round(float(upper), 2)]
 
 
-def _detect_aliases_heuristic(
-    values: List[str], col_name: str = ""
-) -> Optional[Dict[str, List[str]]]:
+def _detect_aliases_heuristic(values: list[str], col_name: str = "") -> dict[str, list[str]] | None:
     """Groups categorical variants purely algorithmically (case, punctuation, and multi-word acronyms).
     Contains zero hardcoded dictionaries, country names, or entity names.
     """
     if not values or len(values) <= 1:
         return None
 
-    aliases: Dict[str, List[str]] = {}
+    aliases: dict[str, list[str]] = {}
     assigned: set[str] = set()
 
     # 1. Group by cleaned alphanumeric lowercase key (case/punctuation variants)
-    groups: Dict[str, List[str]] = {}
+    groups: dict[str, list[str]] = {}
     for val in values:
         clean_key = re.sub(r"[^a-zA-Z0-9]", "", val).lower()
         if clean_key:
@@ -347,10 +337,16 @@ def _detect_aliases_heuristic(
             initials = "".join(w[0] for w in words).upper()
             # Match values that are the exact initials, or initials with prefix/suffix (e.g. US, USA, US_OFFICIAL)
             matching = [
-                v for v in values
-                if v not in assigned and (
+                v
+                for v in values
+                if v not in assigned
+                and (
                     v.strip().upper() == initials
-                    or (len(initials) >= 2 and v.strip().upper().startswith(initials) and len(v.strip()) <= len(initials) + 1)
+                    or (
+                        len(initials) >= 2
+                        and v.strip().upper().startswith(initials)
+                        and len(v.strip()) <= len(initials) + 1
+                    )
                     or (v.strip().upper().startswith(f"{initials}_"))
                 )
             ]
@@ -361,7 +357,7 @@ def _detect_aliases_heuristic(
     return aliases if aliases else None
 
 
-def _select_target(candidates: List[str]) -> Optional[str]:
+def _select_target(candidates: list[str]) -> str | None:
     """Selects the most likely target column from binary candidates."""
     if not candidates:
         return None
@@ -379,10 +375,11 @@ def _select_target(candidates: List[str]) -> Optional[str]:
 # Schema Dict Parser (shared by LLM and external configs)
 # ────────────────────────────────────────────────────────────────────
 
-def _parse_schema_dict(schema_dict: Dict[str, Any], df: pl.DataFrame) -> DatasetSchema:
+
+def _parse_schema_dict(schema_dict: dict[str, Any], df: pl.DataFrame) -> DatasetSchema:
     """Converts a raw JSON dict (from LLM or file) into a validated DatasetSchema."""
     valid_columns = set(df.columns)
-    columns: Dict[str, ColumnSchema] = {}
+    columns: dict[str, ColumnSchema] = {}
 
     for col_name, col_info in schema_dict.get("columns", {}).items():
         if col_name not in valid_columns:
@@ -398,11 +395,7 @@ def _parse_schema_dict(schema_dict: Dict[str, Any], df: pl.DataFrame) -> Dataset
 
     return DatasetSchema(
         id_columns=[c for c in schema_dict.get("id_columns", []) if c in valid_columns],
-        target_column=(
-            schema_dict["target_column"]
-            if schema_dict.get("target_column") in valid_columns
-            else None
-        ),
+        target_column=(schema_dict["target_column"] if schema_dict.get("target_column") in valid_columns else None),
         ignore_columns=[c for c in schema_dict.get("ignore_columns", []) if c in valid_columns],
         columns=columns,
     )
@@ -412,9 +405,8 @@ def _parse_schema_dict(schema_dict: Dict[str, Any], df: pl.DataFrame) -> Dataset
 # Public Entry Point
 # ────────────────────────────────────────────────────────────────────
 
-def infer_schema(
-    df: pl.DataFrame, model_name: Optional[str] = None
-) -> Tuple[DatasetSchema, str]:
+
+def infer_schema(df: pl.DataFrame, model_name: str | None = None) -> tuple[DatasetSchema, str]:
     """
     Infers the dataset schema using LLM first, falling back to heuristics.
 

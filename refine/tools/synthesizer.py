@@ -1,7 +1,7 @@
 """Schema-driven synthetic data generator. Produces realistic records from actual column distributions."""
 
 import random
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -12,18 +12,30 @@ from refine.schema_inference import DatasetSchema
 fake = Faker("en_US")
 
 
+def set_seed(seed: int = 42) -> None:
+    """Sets deterministic random seed across Python random, NumPy, and Faker."""
+    random.seed(seed)
+    np.random.seed(seed)
+    fake.seed_instance(seed)
+    Faker.seed(seed)
+
+
+# Initialize default seed for reproducibility
+set_seed(42)
+
+
 def synthesize_minority_class(
     df: pl.DataFrame,
     target_col: str,
     target_ratio: float = 0.35,
-    schema: Optional[DatasetSchema] = None,
-) -> Tuple[pl.DataFrame, List[str]]:
+    schema: DatasetSchema | None = None,
+) -> tuple[pl.DataFrame, list[str]]:
     """Synthesizes realistic records for the minority class to mitigate class imbalance.
 
     Uses the inferred DatasetSchema to understand column roles and generate
     appropriate values for every column — no hardcoded column names.
     """
-    logs: List[str] = []
+    logs: list[str] = []
     schema = schema or DatasetSchema()
     total_records = df.height
 
@@ -44,8 +56,7 @@ def synthesize_minority_class(
 
     if current_ratio >= target_ratio:
         logs.append(
-            f"Class balance already adequate for '{target_col}' "
-            f"({current_ratio * 100:.1f}%). Skipped synthesis."
+            f"Class balance already adequate for '{target_col}' ({current_ratio * 100:.1f}%). Skipped synthesis."
         )
         return df, logs
 
@@ -54,9 +65,7 @@ def synthesize_minority_class(
         return df, logs
 
     # Build synthetic rows based on actual schema
-    synthetic_rows = _generate_synthetic_rows(
-        df, needed_rows, target_col, minority_val, schema
-    )
+    synthetic_rows = _generate_synthetic_rows(df, needed_rows, target_col, minority_val, schema)
 
     syn_df = pl.DataFrame(synthetic_rows)
 
@@ -69,9 +78,7 @@ def synthesize_minority_class(
         syn_df = syn_df.with_columns(cast_exprs)
 
     updated_df = pl.concat([df, syn_df])
-    new_ratio = (
-        updated_df.filter(pl.col(target_col) == minority_val).height / updated_df.height
-    )
+    new_ratio = updated_df.filter(pl.col(target_col) == minority_val).height / updated_df.height
 
     logs.append(
         f"Synthesized {needed_rows} realistic minority records for '{target_col}'. "
@@ -84,19 +91,19 @@ def synthesize_minority_class(
 def synthesize_numerical_feature(
     df: pl.DataFrame,
     column: str,
-    valid_bounds: Optional[List[float]] = None,
-) -> Tuple[pl.DataFrame, List[str]]:
+    valid_bounds: list[float] | None = None,
+) -> tuple[pl.DataFrame, list[str]]:
     """Synthesizes valid values for missing or extreme outlier numerical fields."""
-    logs: List[str] = []
+    logs: list[str] = []
 
     # Determine bounds for filtering valid data
     lower_bound = valid_bounds[0] if valid_bounds and len(valid_bounds) >= 1 and valid_bounds[0] is not None else 0
-    upper_bound = valid_bounds[1] if valid_bounds and len(valid_bounds) >= 2 and valid_bounds[1] is not None else float("inf")
+    upper_bound = (
+        valid_bounds[1] if valid_bounds and len(valid_bounds) >= 2 and valid_bounds[1] is not None else float("inf")
+    )
 
     valid_data = df.filter(
-        pl.col(column).is_not_null()
-        & (pl.col(column) > lower_bound)
-        & (pl.col(column) < upper_bound)
+        pl.col(column).is_not_null() & (pl.col(column) > lower_bound) & (pl.col(column) < upper_bound)
     )[column].to_numpy()
 
     if len(valid_data) == 0:
@@ -107,11 +114,7 @@ def synthesize_numerical_feature(
     std_val = float(np.std(valid_data))
 
     # Identify anomalous values
-    anomalous_mask = (
-        (pl.col(column).is_null())
-        | (pl.col(column) >= upper_bound)
-        | (pl.col(column) <= lower_bound)
-    )
+    anomalous_mask = (pl.col(column).is_null()) | (pl.col(column) >= upper_bound) | (pl.col(column) <= lower_bound)
     anom_count = df.filter(anomalous_mask).height
 
     if anom_count == 0:
@@ -140,6 +143,7 @@ def synthesize_numerical_feature(
 # Internal Helpers
 # ────────────────────────────────────────────────────────────────────
 
+
 def _detect_minority_value(df: pl.DataFrame, target_col: str) -> Any:
     """Auto-detects the minority class value in a column."""
     val_counts = df[target_col].drop_nulls().value_counts().sort("count")
@@ -154,16 +158,16 @@ def _generate_synthetic_rows(
     target_col: str,
     target_val: Any,
     schema: DatasetSchema,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Generates synthetic rows by sampling from existing column distributions."""
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     max_id = df.height + 1000
 
     # Pre-compute column generators
     generators = _build_column_generators(df, schema, target_col)
 
     for i in range(n_rows):
-        row: Dict[str, Any] = {}
+        row: dict[str, Any] = {}
         for col in df.columns:
             if col == target_col:
                 row[col] = target_val
@@ -176,11 +180,9 @@ def _generate_synthetic_rows(
     return rows
 
 
-def _build_column_generators(
-    df: pl.DataFrame, schema: DatasetSchema, target_col: str
-) -> Dict[str, Any]:
+def _build_column_generators(df: pl.DataFrame, schema: DatasetSchema, target_col: str) -> dict[str, Any]:
     """Creates a generator function per column based on its schema role and type."""
-    generators: Dict[str, Any] = {}
+    generators: dict[str, Any] = {}
 
     for col in df.columns:
         if col == target_col:
@@ -189,11 +191,18 @@ def _build_column_generators(
         col_schema = schema.columns.get(col)
         col_type = str(df.schema[col])
         role = col_schema.role if col_schema else "feature"
-        semantic = col_schema.semantic_type if col_schema else ("numerical" if col_type in ("Int32", "Int64", "Float32", "Float64") else "text")
+        semantic = (
+            col_schema.semantic_type
+            if col_schema
+            else ("numerical" if col_type in ("Int32", "Int64", "Float32", "Float64") else "text")
+        )
 
         # ── ID columns: generate unique synthetic IDs ────────────
         if role == "id":
-            generators[col] = lambda i, max_id, _col=col: f"SYN_{max_id + i}"
+            if "Int" in col_type:
+                generators[col] = lambda i, max_id, _col=col: max_id + i
+            else:
+                generators[col] = lambda i, max_id, _col=col: f"SYN_{max_id + i}"
             continue
 
         # ── Ignore columns: generate fake data or null ───────────
@@ -218,9 +227,11 @@ def _build_column_generators(
                 std = float(np.std(non_null)) or 1.0
                 low = bounds[0] if bounds else float(np.min(non_null))
                 high = bounds[1] if bounds else float(np.max(non_null))
+                is_int = "Int" in col_type
 
-                def _gen_num(i, max_id, _m=mean, _s=std, _l=low, _h=high):
-                    return int(np.clip(np.random.normal(_m, _s), _l, _h))
+                def _gen_num(i, max_id, _m=mean, _s=std, _l=low, _h=high, _is_int=is_int):
+                    val = np.clip(np.random.normal(_m, _s), _l, _h)
+                    return int(val) if _is_int else float(val)
 
                 generators[col] = _gen_num
             continue

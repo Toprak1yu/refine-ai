@@ -6,3 +6,6 @@ data/processed/
 .pytest_cache/
 *.egg-info/
 .vscode/
+*.log
+data/raw/*
+!data/raw/dirty_customers.csv
