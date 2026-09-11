@@ -124,12 +124,20 @@ def build_execution_manifest(
                         "description": f"Gaussian Synthesis ({outliers} outliers)",
                     }
                 )
-        elif strat == "DROP":
+        elif strat in ("DROP", "DROP_COLUMN"):
             planned_actions.append(
                 {
                     "tool": "DROP",
                     "column": col,
-                    "description": f"Drop records with invalid/outlier values ({outliers} outliers)",
+                    "description": "Drop feature column from dataset (preserves all records)",
+                }
+            )
+        elif strat in ("DROP_ROW", "DROP_ROWS", "DROP_RECORDS"):
+            planned_actions.append(
+                {
+                    "tool": "DROP_ROWS",
+                    "column": col,
+                    "description": f"Prune records with invalid/outlier values ({outliers} outliers)",
                 }
             )
         else:

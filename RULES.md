@@ -18,7 +18,7 @@ Interrupt the execution graph immediately and yield control to the human operato
 
 ## RESOLUTION STRATEGIES OFFERED TO HUMAN
 When raising an interrupt, present structured choices:
-- [1] DROP: Remove affected records or the entire feature.
+- [1] DROP: Remove the entire feature column from the dataset (preserves all records across other columns).
 - [2] STATISTICAL_IMPUTE: Fill values using median, mean, or mode.
 - [3] SYNTHETIC_SYNTHESIS: Generate realistic values conditioned on valid feature distributions.
 - [4] MANUAL_INPUT: Accept explicit override values provided by the operator.

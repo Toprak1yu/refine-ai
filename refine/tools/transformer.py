@@ -34,8 +34,15 @@ def apply_human_resolutions(
         col_type = str(df.schema[column])
         is_numerical = col_type in ("Int32", "Int64", "Float32", "Float64")
 
-        # ── DROP ─────────────────────────────────────────────────
-        if strategy == "DROP":
+        # ── DROP (Feature Column Removal) ─────────────────────────
+        if strategy in ("DROP", "DROP_COLUMN"):
+            df = df.drop(column)
+            audit_logs.append(
+                f"Applied DROP strategy on '{column}': removed feature column from dataset (preserved all {df.height} records)."
+            )
+
+        # ── DROP_ROWS (Prune Faulty Records) ──────────────────────
+        elif strategy in ("DROP_ROW", "DROP_ROWS", "DROP_RECORDS"):
             initial_count = df.height
             drop_conditions = [pl.col(column).is_null()]
 
@@ -51,7 +58,7 @@ def apply_human_resolutions(
 
             df = df.filter(~pl.any_horizontal(drop_conditions))
             dropped_count = initial_count - df.height
-            audit_logs.append(f"Applied DROP strategy on '{column}': pruned {dropped_count} records.")
+            audit_logs.append(f"Applied DROP_ROWS strategy on '{column}': pruned {dropped_count} records.")
 
         # ── STATISTICAL_IMPUTE ───────────────────────────────────
         elif strategy == "STATISTICAL_IMPUTE":
