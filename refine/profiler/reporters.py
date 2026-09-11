@@ -1,15 +1,17 @@
+import time
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 
 console = Console()
 
 
-def render_profile_table(profile: dict[str, Any]) -> None:
+def render_profile_table(profile: dict[str, Any], stream: bool = True) -> None:
     """Renders dataset profile and detected anomalies in a structured CLI panel."""
     console.print(Panel.fit("[bold blue]Dataset Profile & Anomaly Audit[/bold blue]", border_style="blue"))
 
@@ -20,6 +22,7 @@ def render_profile_table(profile: dict[str, Any]) -> None:
     table.add_column("Outliers", style="red")
     table.add_column("Status / Anomalies", style="white")
 
+    rows = []
     for col_name, stats in profile["columns"].items():
         null_str = f"{stats['null_count']} ({stats['null_ratio'] * 100:.1f}%)"
         outlier_str = str(stats.get("outliers_count", 0))
@@ -30,9 +33,41 @@ def render_profile_table(profile: dict[str, Any]) -> None:
         else:
             status_str = "[bold green]✓ Healthy[/bold green]"
 
-        table.add_row(col_name, stats["type"], null_str, outlier_str, status_str)
+        rows.append((col_name, stats["type"], null_str, outlier_str, status_str))
 
-    console.print(table)
+    if console.is_terminal and stream:
+        with Live(table, console=console, refresh_per_second=25):
+            for row in rows:
+                table.add_row(*row)
+                time.sleep(0.04)
+    else:
+        for row in rows:
+            table.add_row(*row)
+        console.print(table)
+
+
+def render_streaming_panel(
+    title: str,
+    header_text: str,
+    body_text: str,
+    border_style: str = "cyan",
+    stream: bool = True,
+    word_delay: float = 0.007,
+) -> None:
+    """Renders a panel with ChatGPT-style streaming text effect."""
+    full_text = f"{header_text}\n\n{body_text}" if header_text else body_text
+    if not console.is_terminal or not stream:
+        console.print(Panel(full_text, border_style=border_style, title=title))
+        return
+
+    words = body_text.split(" ")
+    current = ""
+    with Live(console=console, refresh_per_second=30) as live:
+        for i, w in enumerate(words):
+            current += w if i == 0 else " " + w
+            content = f"{header_text}\n\n{current}" if header_text else current
+            live.update(Panel(content, border_style=border_style, title=title))
+            time.sleep(word_delay)
 
 
 def build_execution_manifest(
@@ -148,8 +183,8 @@ def build_execution_manifest(
     }
 
 
-def render_execution_manifest(manifest: dict[str, Any]) -> None:
-    """Renders the planned file operations and data mutations panel."""
+def render_execution_manifest(manifest: dict[str, Any], stream: bool = True) -> None:
+    """Renders the planned file operations and data mutations panel with streaming effect."""
     lines: list[str] = []
 
     lines.append("[bold]Target Files:[/bold]")
@@ -164,12 +199,27 @@ def render_execution_manifest(manifest: dict[str, Any]) -> None:
             f"  • [bold green]{tool_label:<18}[/bold green] [cyan]{act['column']:<10}[/cyan] -> {act['description']}"
         )
 
-    panel_content = "\n".join(lines)
-    console.print(
-        Panel(
-            panel_content,
-            title="[bold]📋 PLANNED EXECUTION MANIFEST[/bold]",
-            border_style="blue",
-            expand=False,
+    if console.is_terminal and stream:
+        accumulated: list[str] = []
+        with Live(console=console, refresh_per_second=25) as live:
+            for line in lines:
+                accumulated.append(line)
+                live.update(
+                    Panel(
+                        "\n".join(accumulated),
+                        title="[bold]📋 PLANNED EXECUTION MANIFEST[/bold]",
+                        border_style="blue",
+                        expand=False,
+                    )
+                )
+                time.sleep(0.03)
+    else:
+        panel_content = "\n".join(lines)
+        console.print(
+            Panel(
+                panel_content,
+                title="[bold]📋 PLANNED EXECUTION MANIFEST[/bold]",
+                border_style="blue",
+                expand=False,
+            )
         )
-    )

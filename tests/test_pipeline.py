@@ -414,3 +414,31 @@ def test_drop_strategy_removes_column_not_rows():
     # Row count must remain 10 (no rows pruned)
     assert clean_df.height == 10
     assert any("removed feature column" in log for log in logs)
+
+
+def test_render_streaming_panel():
+    from refine.profiler.reporters import render_streaming_panel
+
+    # Test non-interactive streaming (stream=False and stream=True in non-terminal env)
+    render_streaming_panel("Test Panel", "Header", "Body word1 word2", stream=False)
+    render_streaming_panel("Test Panel 2", "Header 2", "Body word1 word2", stream=True)
+
+
+def test_cli_no_stream_option(tmp_path):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    runner = CliRunner()
+    raw_file = tmp_path / "raw.csv"
+    out_file = tmp_path / "clean.csv"
+
+    df = pl.DataFrame({"id": [1, 2, 3], "val": [10, 20, 30]})
+    df.write_csv(str(raw_file))
+
+    result = runner.invoke(
+        app,
+        ["run", "-f", str(raw_file), "-o", str(out_file), "--no-stream", "--dry-run"],
+    )
+    assert result.exit_code == 0
+    assert "DRY-RUN COMPLETE" in result.output

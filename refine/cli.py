@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -15,7 +16,12 @@ from rich.table import Table
 from refine import __version__
 from refine.graph import build_pipeline_graph
 from refine.logger import setup_logger
-from refine.profiler.reporters import build_execution_manifest, render_execution_manifest, render_profile_table
+from refine.profiler.reporters import (
+    build_execution_manifest,
+    render_execution_manifest,
+    render_profile_table,
+    render_streaming_panel,
+)
 from refine.profiler.stats import profile_dataset
 from refine.schema_inference import infer_schema
 
@@ -28,16 +34,16 @@ console = Console()
 logger = setup_logger()
 
 
-def render_interrupt_ui(interrupt_payload: dict, show_advice: bool = True) -> dict[str, str]:
+def render_interrupt_ui(interrupt_payload: dict, show_advice: bool = True, stream: bool = True) -> dict[str, str]:
     """Displays LLM advice and collects human decisions for anomalous features."""
     expert_advice = interrupt_payload.get("expert_advice")
     if show_advice and expert_advice:
-        console.print(
-            Panel(
-                f"[bold cyan]🧠 Senior Data Architect Reasoning (via RULES.md):[/bold cyan]\n\n{expert_advice}",
-                border_style="cyan",
-                title="Agent Guidance",
-            )
+        render_streaming_panel(
+            title="Agent Guidance",
+            header_text="[bold cyan]🧠 Senior Data Architect Reasoning (via RULES.md):[/bold cyan]",
+            body_text=expert_advice,
+            border_style="cyan",
+            stream=stream,
         )
 
     issues = interrupt_payload.get("issues", [])
@@ -147,6 +153,7 @@ def run(
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Preview planned execution and manifest without modifying files on disk"
     ),
+    stream: bool = typer.Option(True, "--stream/--no-stream", help="Enable or disable ChatGPT-style streaming output"),
 ):
     """Executes the pipeline graph, gracefully pausing on anomalies for human governance."""
     raw_path = Path(file)
@@ -230,19 +237,19 @@ def run(
 
         if profile_data:
             console.print()
-            render_profile_table(profile_data)
+            render_profile_table(profile_data, stream=stream)
 
         if state_snapshot.tasks and any(task.interrupts for task in state_snapshot.tasks):
             interrupt_info = state_snapshot.tasks[0].interrupts[0].value
             expert_advice = interrupt_info.get("expert_advice")
 
             if expert_advice:
-                console.print(
-                    Panel(
-                        f"[bold cyan]🧠 Senior Data Architect Reasoning (via RULES.md):[/bold cyan]\n\n{expert_advice}",
-                        border_style="cyan",
-                        title="Agent Guidance",
-                    )
+                render_streaming_panel(
+                    title="Agent Guidance",
+                    header_text="[bold cyan]🧠 Senior Data Architect Reasoning (via RULES.md):[/bold cyan]",
+                    body_text=expert_advice,
+                    border_style="cyan",
+                    stream=stream,
                 )
 
             # Build and render Planned Execution Manifest
@@ -256,7 +263,7 @@ def run(
                 recommended_strategies=interrupt_info.get("recommended_strategies", {}),
                 profile=profile_data,
             )
-            render_execution_manifest(manifest)
+            render_execution_manifest(manifest, stream=stream)
 
             # Prompt operator: Approve recommended plan or enter manual column governance
             approve = Confirm.ask("\n[bold]Do you approve executing these file operations?[/bold]", default=True)
@@ -266,7 +273,7 @@ def run(
                 human_decisions = interrupt_info.get("recommended_strategies", {})
             else:
                 console.print("\n[bold yellow]ℹ Operator opted for manual column-by-column governance.[/bold yellow]\n")
-                human_decisions = render_interrupt_ui(interrupt_info, show_advice=False)
+                human_decisions = render_interrupt_ui(interrupt_info, show_advice=False, stream=stream)
 
             if dry_run:
                 console.print(
@@ -307,7 +314,7 @@ def run(
                     recommended_strategies={},
                     profile=profile_data,
                 )
-                render_execution_manifest(manifest)
+                render_execution_manifest(manifest, stream=stream)
                 console.print(
                     Panel.fit(
                         "[bold yellow]► DRY-RUN COMPLETE:[/bold yellow] Cleanliness verified. No files were modified or written to disk.",
@@ -322,6 +329,8 @@ def run(
 
         console.print("\n[bold cyan]Audit Log Trail:[/bold cyan]")
         for entry in final_state.get("audit_trail", []):
+            if console.is_terminal and stream:
+                time.sleep(0.03)
             console.print(f" [dim]•[/dim] {entry}")
 
         console.print(f"\n[bold]Output Dataset:[/bold] [green]{final_state.get('processed_file_path')}[/green]\n")
@@ -331,7 +340,6 @@ def run(
     except Exception as e:
         console.print(f"\n[bold red]Pipeline Execution Failed:[/bold red] {e}\n")
         logger.exception(f"Unhandled error during pipeline run: {e}")
-        raise typer.Exit(code=1) from None
         raise typer.Exit(code=1) from None
 
 
