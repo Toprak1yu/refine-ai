@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "refine-ai"
-version = "0.1.0"
+version = "0.2.0"
 description = "Autonomous Data Pipeline & Synthesis Agent with Human-in-the-Loop Governance"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -23,7 +23,6 @@ dependencies = [
     "faker>=25.0.0",
     "pydantic>=2.7.0",
     "langchain-ollama>=0.1.0",
-    "pytest>=9.1.1",
 ]
 
 [project.optional-dependencies]

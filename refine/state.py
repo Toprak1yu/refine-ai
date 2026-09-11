@@ -5,6 +5,8 @@ class AgentState(TypedDict):
     processed_file_path: Optional[str]
     initial_row_count: int
     records: List[Dict[str, Any]]
+    inferred_schema: Optional[Dict[str, Any]]
+    schema_method: Optional[str]
     profile: Optional[Dict[str, Any]]
     critical_issues: List[Dict[str, Any]]
     expert_advice: Optional[str]

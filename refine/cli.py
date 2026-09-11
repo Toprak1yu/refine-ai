@@ -23,15 +23,7 @@ console = Console()
 
 
 def render_interrupt_ui(interrupt_payload: dict) -> Dict[str, str]:
-    """Displays detected critical anomalies, LLM advice, and collects human decisions."""
-    console.print(
-        Panel.fit(
-            "[bold yellow]⚠️  HUMAN-IN-THE-LOOP (HITL) GOVERNANCE REQUIRED[/bold yellow]\n"
-            f"[dim]{interrupt_payload.get('instruction')}[/dim]",
-            border_style="yellow",
-        )
-    )
-
+    """Displays LLM advice and collects human decisions for anomalous features."""
     # Display Senior Data Engineer / LLM Advice Panel
     expert_advice = interrupt_payload.get("expert_advice")
     if expert_advice:
@@ -63,23 +55,33 @@ def render_interrupt_ui(interrupt_payload: dict) -> Dict[str, str]:
     for col in unique_columns:
         prompt_text = (
             f"Select strategy for feature '[bold cyan]{col}[/bold cyan]' "
-            f"([1] DROP, [2] STATISTICAL_IMPUTE, [3] SYNTHETIC_SYNTHESIS)"
+            f"([1] DROP, [2] STATISTICAL_IMPUTE, [3] SYNTHETIC_SYNTHESIS, [4] MANUAL_INPUT)"
         )
-        choice = Prompt.ask(prompt_text, choices=["1", "2", "3", "DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS"], default="2")
+        choice = Prompt.ask(
+            prompt_text,
+            choices=["1", "2", "3", "4", "DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS", "MANUAL_INPUT"]
+        )
 
         mapping = {
             "1": "DROP",
             "2": "STATISTICAL_IMPUTE",
             "3": "SYNTHETIC_SYNTHESIS",
+            "4": "MANUAL_INPUT",
             "DROP": "DROP",
             "STATISTICAL_IMPUTE": "STATISTICAL_IMPUTE",
             "SYNTHETIC_SYNTHESIS": "SYNTHETIC_SYNTHESIS",
+            "MANUAL_INPUT": "MANUAL_INPUT",
         }
         selected_strategy = mapping[choice]
         
         if selected_strategy in strategies:
-            decisions[col] = selected_strategy
-            console.print(f" -> Assigned [bold green]{selected_strategy}[/bold green] to '[bold cyan]{col}[/bold cyan]'")
+            if selected_strategy == "MANUAL_INPUT":
+                override_val = Prompt.ask(f" Enter manual override value for '[bold cyan]{col}[/bold cyan]'")
+                decisions[col] = f"MANUAL_INPUT:{override_val}"
+                console.print(f" -> Assigned [bold green]MANUAL_INPUT[/bold green] (value: '{override_val}') to '[bold cyan]{col}[/bold cyan]'")
+            else:
+                decisions[col] = selected_strategy
+                console.print(f" -> Assigned [bold green]{selected_strategy}[/bold green] to '[bold cyan]{col}[/bold cyan]'")
         else:
             console.print(f" -> [bold red]Invalid strategy:[/bold red] {choice}")
             console.print(f" -> [bold red]Available strategies:[/bold red] {', '.join(strategies)}")
@@ -94,12 +96,17 @@ def run(
     file: str = typer.Option("data/raw/dirty_customers.csv", "--file", "-f", help="Input raw CSV path"),
     output: str = typer.Option("data/processed/clean_customers.csv", "--output", "-o", help="Processed target CSV path"),
     thread_id: str = typer.Option("session_001", "--thread-id", "-t", help="Checkpoint session thread ID"),
+    model: str = typer.Option("qwen2.5-coder:14b", "--model", "-m", help="Ollama LLM model name for reasoning & inference"),
 ):
     """Executes the pipeline graph, gracefully pausing on anomalies for human governance."""
     raw_path = Path(file)
     if not raw_path.exists():
         console.print(f"[bold red]Error:[/bold red] Target raw data file '{file}' not found.")
         raise typer.Exit(code=1)
+
+    import os
+    if model:
+        os.environ["OLLAMA_MODEL"] = model
 
     db_path = Path(".checkpoints.db")
     conn = sqlite3.connect(str(db_path), check_same_thread=False)
@@ -115,9 +122,13 @@ def run(
     initial_state = {
         "raw_file_path": str(raw_path),
         "processed_file_path": output,
+        "initial_row_count": 0,
         "records": [],
+        "inferred_schema": None,
+        "schema_method": None,
         "profile": None,
         "critical_issues": [],
+        "expert_advice": None,
         "human_resolutions": {},
         "audit_trail": [],
         "is_completed": False,
@@ -128,6 +139,11 @@ def run(
 
     # Check if graph paused due to interrupt()
     state_snapshot = graph.get_state(config)
+
+    # Display dataset profile if available
+    profile_data = state_snapshot.values.get("profile")
+    if profile_data:
+        render_profile_table(profile_data)
 
     if state_snapshot.tasks and any(task.interrupts for task in state_snapshot.tasks):
         # Extract the interrupt payload
@@ -151,7 +167,8 @@ def run(
 @app.command()
 def version():
     """Prints the CLI version."""
-    console.print("[bold green]refine-ai v0.1.0[/bold green]")
+    from refine import __version__
+    console.print(f"[bold green]refine-ai v{__version__}[/bold green]")
 
 if __name__ == "__main__":
     app()

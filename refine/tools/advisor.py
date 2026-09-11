@@ -1,7 +1,17 @@
 import os
+import urllib.request
 from pathlib import Path
 from typing import Any, Dict
-from langchain_core.messages import SystemMessage, HumanMessage
+
+
+def _is_ollama_online(base_url: str) -> bool:
+    """Fast check (timeout 0.3s) if local Ollama daemon is reachable."""
+    try:
+        req = urllib.request.Request(f"{base_url.rstrip('/')}/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=0.3):
+            return True
+    except Exception:
+        return False
 
 
 def generate_expert_advice(profile: Dict[str, Any], critical_issues: list) -> str:
@@ -10,17 +20,34 @@ def generate_expert_advice(profile: Dict[str, Any], critical_issues: list) -> st
     rules_path = Path("RULES.md")
     rules_content = rules_path.read_text() if rules_path.exists() else "Apply standard statistical governance."
 
-    # 2. Heuristic fallback when local LLM server is unreachable
+    # 2. Dynamic heuristic fallback when local LLM server is unreachable
+    recommendations = []
+    for issue in critical_issues:
+        col = issue.get("column", "unknown")
+        itype = issue.get("type", "")
+        if itype == "INVALID_BOUNDS":
+            recommendations.append(f"• '{col}' contains invalid boundaries: Recommend STATISTICAL_IMPUTE with median.")
+        elif itype == "STATISTICAL_OUTLIER":
+            recommendations.append(f"• '{col}' contains severe Z-score outliers: Recommend STATISTICAL_IMPUTE or SYNTHETIC_SYNTHESIS.")
+        elif itype == "CLASS_IMBALANCE":
+            recommendations.append(f"• '{col}' exhibits severe class imbalance: Recommend SYNTHETIC_SYNTHESIS to prevent classifier bias.")
+        elif itype == "HIGH_NULL_RATIO":
+            recommendations.append(f"• '{col}' has high missingness ratio (>=20%): Recommend STATISTICAL_IMPUTE or DROP.")
+        else:
+            recommendations.append(f"• '{col}' anomaly detected ({itype}): Recommend STATISTICAL_IMPUTE.")
+
     heuristic_advice = (
-        "[Local Rule-Engine Fallback]:\n"
-        "• 'age' contains invalid boundaries (<0, >120): Recommend STATISTICAL_IMPUTE with median (40-45 yrs).\n"
-        "• 'salary' contains severe Z-score outliers: Recommend STATISTICAL_IMPUTE or SYNTHETIC_SYNTHESIS to avoid data skew.\n"
-        "• 'churn' exhibits severe class imbalance (<10%): Recommend SYNTHETIC_SYNTHESIS to prevent classifier bias."
+        "[Local Rule-Engine Fallback]:\n" + "\n".join(recommendations)
+        if recommendations
+        else "[Local Rule-Engine Fallback]: No critical remediation required."
     )
 
     # 3. Connect to local Ollama instance
     model_name = os.getenv("OLLAMA_MODEL", "qwen2.5-coder:14b") 
     ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+
+    if not _is_ollama_online(ollama_base_url):
+        return heuristic_advice
 
     try:
         from langchain_ollama import ChatOllama
