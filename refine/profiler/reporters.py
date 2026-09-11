@@ -132,14 +132,6 @@ def build_execution_manifest(
                     "description": "Drop feature column from dataset (preserves all records)",
                 }
             )
-        elif strat in ("DROP_ROW", "DROP_ROWS", "DROP_RECORDS"):
-            planned_actions.append(
-                {
-                    "tool": "DROP_ROWS",
-                    "column": col,
-                    "description": f"Prune records with invalid/outlier values ({outliers} outliers)",
-                }
-            )
         else:
             override = strat.split(":", 1)[1] if ":" in strat else strat
             planned_actions.append(

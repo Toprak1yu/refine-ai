@@ -414,32 +414,3 @@ def test_drop_strategy_removes_column_not_rows():
     # Row count must remain 10 (no rows pruned)
     assert clean_df.height == 10
     assert any("removed feature column" in log for log in logs)
-
-
-def test_drop_rows_strategy_prunes_records():
-    from refine.schema_inference import ColumnSchema, DatasetSchema
-    from refine.tools.transformer import apply_human_resolutions
-
-    df = pl.DataFrame(
-        {
-            "id": list(range(10)),
-            "age": [25] * 7 + [None, -10, 200],
-            "salary": [50000] * 10,
-        }
-    )
-    schema = DatasetSchema(
-        columns={
-            "id": ColumnSchema(role="id", semantic_type="id"),
-            "age": ColumnSchema(role="feature", semantic_type="numerical", valid_bounds=[0, 100]),
-            "salary": ColumnSchema(role="feature", semantic_type="numerical"),
-        }
-    )
-
-    clean_df, logs = apply_human_resolutions(df, {"age": "DROP_ROWS"}, schema)
-
-    # Column 'age' remains, but 3 anomalous rows are removed
-    assert "age" in clean_df.columns
-    assert clean_df.height == 7
-    assert clean_df["age"].null_count() == 0
-    assert clean_df["age"].max() <= 100
-    assert any("pruned 3 records" in log for log in logs)
