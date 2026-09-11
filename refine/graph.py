@@ -10,7 +10,7 @@ from refine.logger import get_logger
 from refine.profiler.stats import profile_dataset
 from refine.schema_inference import DatasetSchema, infer_schema
 from refine.state import AgentState
-from refine.tools.advisor import generate_expert_advice
+from refine.tools.advisor import generate_expert_advice, get_recommended_strategies
 from refine.tools.cleaner import run_deterministic_clean
 from refine.tools.reporter import generate_markdown_audit
 from refine.tools.synthesizer import set_seed
@@ -87,12 +87,14 @@ def evaluate_anomalies_node(state: AgentState) -> dict[str, Any]:
     if critical_issues and not state.get("human_resolutions"):
         logger.info(f"Triggering HITL interrupt for {len(critical_issues)} critical issues.")
         advice = generate_expert_advice(state["profile"], critical_issues)
+        recommended = get_recommended_strategies(critical_issues, advice)
 
         human_decisions = interrupt(
             {
                 "instruction": "Critical anomalies require human governance before pipeline execution.",
                 "issues": critical_issues,
                 "expert_advice": advice,
+                "recommended_strategies": recommended,
                 "available_strategies": ["DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS", "MANUAL_INPUT"],
             }
         )

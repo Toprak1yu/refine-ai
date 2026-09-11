@@ -283,3 +283,104 @@ def test_post_remediation_and_telemetry(tmp_path):
     # Verification node checked residual issues
     trail = " ".join(final_state["audit_trail"])
     assert "Verification" in trail or "clean" in trail.lower()
+
+
+def test_get_recommended_strategies():
+    from refine.tools.advisor import get_recommended_strategies
+
+    issues = [
+        {"column": "age", "type": "INVALID_BOUNDS"},
+        {"column": "salary", "type": "STATISTICAL_OUTLIER"},
+        {"column": "churn", "type": "CLASS_IMBALANCE"},
+    ]
+
+    # Heuristic fallback
+    strat = get_recommended_strategies(issues)
+    assert strat["age"] == "STATISTICAL_IMPUTE"
+    assert strat["salary"] == "SYNTHETIC_SYNTHESIS"
+    assert strat["churn"] == "SYNTHETIC_SYNTHESIS"
+
+    # Regex extraction from LLM advice
+    custom_advice = "• 'salary':\n  ➜ Önerilen Karar: STATISTICAL_IMPUTE\n  ➜ Seçimin Sonucu: test."
+    strat2 = get_recommended_strategies(issues, advice_text=custom_advice)
+    assert strat2["salary"] == "STATISTICAL_IMPUTE"
+
+
+def test_build_execution_manifest():
+    from refine.profiler.reporters import build_execution_manifest
+
+    manifest = build_execution_manifest(
+        raw_path="data/raw/test.csv",
+        processed_path="data/processed/clean.csv",
+        session_id="test_sess",
+        total_rows=100,
+        audit_trail=["Normalized 5 aliases in 'country' to canonical values."],
+        critical_issues=[{"column": "age", "type": "STATISTICAL_OUTLIER"}],
+        recommended_strategies={"age": "STATISTICAL_IMPUTE"},
+        profile={"columns": {"age": {"outliers_count": 4, "null_count": 2}}},
+    )
+
+    assert any(f["action"] == "[READ]" and "test.csv" in f["path"] for f in manifest["target_files"])
+    assert any(f["action"] == "[CREATE]" and "clean.csv" in f["path"] for f in manifest["target_files"])
+    assert any(act["tool"] == "CLEAN" and act["column"] == "country" for act in manifest["planned_actions"])
+    assert any(act["tool"] == "IMPUTE" and act["column"] == "age" for act in manifest["planned_actions"])
+
+
+def test_cli_run_dry_run_command(tmp_path):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    runner = CliRunner()
+    raw_file = tmp_path / "raw.csv"
+    out_file = tmp_path / "clean.csv"
+
+    df = pl.DataFrame(
+        {
+            "id": list(range(30)),
+            "age": [25] * 28 + [-10, 300],
+            "target": [0] * 28 + [1, 1],
+        }
+    )
+    df.write_csv(str(raw_file))
+
+    # User responds "y" to approve manifest in dry-run mode
+    result = runner.invoke(app, ["run", "-f", str(raw_file), "-o", str(out_file), "--dry-run"], input="y\n")
+    assert result.exit_code == 0
+    assert "PLANNED EXECUTION MANIFEST" in result.output
+    assert "DRY-RUN COMPLETE" in result.output
+    # Ensure no output was written to disk
+    assert not out_file.exists()
+
+
+def test_cli_run_user_rejects_manifest_manual_selection(tmp_path):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    runner = CliRunner()
+    raw_file = tmp_path / "raw.csv"
+    out_file = tmp_path / "clean.csv"
+
+    df = pl.DataFrame(
+        {
+            "id": list(range(30)),
+            "age": [25] * 28 + [-10, 300],
+            "target": [0] * 28 + [1, 1],
+        }
+    )
+    df.write_csv(str(raw_file))
+
+    # User responds "n" to manifest -> opted for manual governance
+    # Then for each anomalous column (age, target), sends strategy choice (e.g. 2, 3)
+    user_inputs = "n\n2\n3\n"
+    result = runner.invoke(
+        app,
+        ["run", "-f", str(raw_file), "-o", str(out_file), "-t", "test_reject_sess"],
+        input=user_inputs,
+    )
+    assert result.exit_code == 0
+    assert "PLANNED EXECUTION MANIFEST" in result.output
+    assert "Operator opted for manual column-by-column governance" in result.output
+    assert "PIPELINE EXECUTION COMPLETED" in result.output
+    assert out_file.exists()

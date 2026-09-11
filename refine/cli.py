@@ -15,7 +15,7 @@ from rich.table import Table
 from refine import __version__
 from refine.graph import build_pipeline_graph
 from refine.logger import setup_logger
-from refine.profiler.reporters import render_profile_table
+from refine.profiler.reporters import build_execution_manifest, render_execution_manifest, render_profile_table
 from refine.profiler.stats import profile_dataset
 from refine.schema_inference import infer_schema
 
@@ -28,10 +28,10 @@ console = Console()
 logger = setup_logger()
 
 
-def render_interrupt_ui(interrupt_payload: dict) -> dict[str, str]:
+def render_interrupt_ui(interrupt_payload: dict, show_advice: bool = True) -> dict[str, str]:
     """Displays LLM advice and collects human decisions for anomalous features."""
     expert_advice = interrupt_payload.get("expert_advice")
-    if expert_advice:
+    if show_advice and expert_advice:
         console.print(
             Panel(
                 f"[bold cyan]🧠 Senior Data Architect Reasoning (via RULES.md):[/bold cyan]\n\n{expert_advice}",
@@ -42,6 +42,13 @@ def render_interrupt_ui(interrupt_payload: dict) -> dict[str, str]:
 
     issues = interrupt_payload.get("issues", [])
     strategies = interrupt_payload.get("available_strategies", [])
+    recommended = interrupt_payload.get("recommended_strategies", {})
+    strat_to_num = {
+        "DROP": "1",
+        "STATISTICAL_IMPUTE": "2",
+        "SYNTHETIC_SYNTHESIS": "3",
+        "MANUAL_INPUT": "4",
+    }
 
     table = Table(title="Anomalous Features Requiring Human Intervention")
     table.add_column("Target Feature", style="cyan", no_wrap=True)
@@ -59,6 +66,8 @@ def render_interrupt_ui(interrupt_payload: dict) -> dict[str, str]:
     unique_columns = list(dict.fromkeys(issue["column"] for issue in issues))
 
     for col in unique_columns:
+        default_strat = recommended.get(col, "STATISTICAL_IMPUTE")
+        default_num = strat_to_num.get(default_strat, "2")
         prompt_text = (
             f"Select strategy for feature '[bold cyan]{col}[/bold cyan]' "
             f"([1] DROP, [2] STATISTICAL_IMPUTE, [3] SYNTHETIC_SYNTHESIS, [4] MANUAL_INPUT)"
@@ -66,7 +75,7 @@ def render_interrupt_ui(interrupt_payload: dict) -> dict[str, str]:
         choice = Prompt.ask(
             prompt_text,
             choices=["1", "2", "3", "4", "DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS", "MANUAL_INPUT"],
-            default="2",
+            default=default_num,
         )
 
         mapping = {
@@ -135,6 +144,9 @@ def run(
         "qwen2.5-coder:14b", "--model", "-m", help="Ollama LLM model name for reasoning & inference"
     ),
     seed: int = typer.Option(42, "--seed", "-s", help="Random seed for deterministic reproducibility"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Preview planned execution and manifest without modifying files on disk"
+    ),
 ):
     """Executes the pipeline graph, gracefully pausing on anomalies for human governance."""
     raw_path = Path(file)
@@ -182,24 +194,127 @@ def run(
     }
 
     try:
-        # Step 1: Run graph until completion or interrupt
-        graph.invoke(initial_state, config=config)
+        # Step 1: Run graph stream until completion or interrupt
+        with console.status("[bold cyan]Executing pipeline graph...[/bold cyan]") as status:
+            for chunk in graph.stream(initial_state, config=config, stream_mode="updates"):
+                for node_name in chunk:
+                    if node_name == "schema_inference":
+                        status.update(
+                            "[bold cyan][TOOL: PROFILER][/bold cyan] Profiling statistical distributions & bounds..."
+                        )
+                        console.print(
+                            "  [bold green]✓[/bold green] [dim][TOOL: SCHEMA_INFERENCE][/dim] Inferred column roles and semantic types."
+                        )
+                    elif node_name == "profile":
+                        status.update(
+                            "[bold cyan][TOOL: CLEANER][/bold cyan] Running deterministic cleaning operations..."
+                        )
+                        console.print(
+                            "  [bold green]✓[/bold green] [dim][TOOL: PROFILER][/dim] Statistical profile completed & anomalies detected."
+                        )
+                    elif node_name == "deterministic_clean":
+                        status.update(
+                            "[bold cyan][TOOL: ADVISOR][/bold cyan] Evaluating anomalies against operational governance rules..."
+                        )
+                        console.print(
+                            "  [bold green]✓[/bold green] [dim][TOOL: CLEANER][/dim] Whitespace & canonical aliases standardized."
+                        )
+                    elif node_name == "evaluate_anomalies":
+                        console.print(
+                            "  [bold green]✓[/bold green] [dim][TOOL: ADVISOR][/dim] AI advisor synthesized remediation strategies."
+                        )
 
         # Check if graph paused due to interrupt()
         state_snapshot = graph.get_state(config)
-
-        # Display dataset profile if available
         profile_data = state_snapshot.values.get("profile")
+
         if profile_data:
+            console.print()
             render_profile_table(profile_data)
 
         if state_snapshot.tasks and any(task.interrupts for task in state_snapshot.tasks):
             interrupt_info = state_snapshot.tasks[0].interrupts[0].value
-            human_decisions = render_interrupt_ui(interrupt_info)
+            expert_advice = interrupt_info.get("expert_advice")
 
-            console.print("\n[bold green]► Resuming execution graph with human decisions...[/bold green]\n")
-            # Step 2: Resume graph with Command(resume=...)
-            graph.invoke(Command(resume=human_decisions), config=config)
+            if expert_advice:
+                console.print(
+                    Panel(
+                        f"[bold cyan]🧠 Senior Data Architect Reasoning (via RULES.md):[/bold cyan]\n\n{expert_advice}",
+                        border_style="cyan",
+                        title="Agent Guidance",
+                    )
+                )
+
+            # Build and render Planned Execution Manifest
+            manifest = build_execution_manifest(
+                raw_path=str(raw_path),
+                processed_path=output,
+                session_id=thread_id,
+                total_rows=state_snapshot.values.get("initial_row_count", 0),
+                audit_trail=state_snapshot.values.get("audit_trail", []),
+                critical_issues=interrupt_info.get("issues", []),
+                recommended_strategies=interrupt_info.get("recommended_strategies", {}),
+                profile=profile_data,
+            )
+            render_execution_manifest(manifest)
+
+            # Prompt operator: Approve recommended plan or enter manual column governance
+            approve = Confirm.ask("\n[bold]Do you approve executing these file operations?[/bold]", default=True)
+
+            if approve:
+                console.print("\n[bold green]✓ AI-recommended execution manifest approved.[/bold green]")
+                human_decisions = interrupt_info.get("recommended_strategies", {})
+            else:
+                console.print("\n[bold yellow]ℹ Operator opted for manual column-by-column governance.[/bold yellow]\n")
+                human_decisions = render_interrupt_ui(interrupt_info, show_advice=False)
+
+            if dry_run:
+                console.print(
+                    Panel.fit(
+                        "[bold yellow]► DRY-RUN COMPLETE:[/bold yellow] All planned operations inspected. No files were modified or written to disk.",
+                        border_style="yellow",
+                    )
+                )
+                raise typer.Exit(code=0) from None
+
+            console.print("\n[bold green]► Resuming execution graph with decisions...[/bold green]\n")
+            # Step 2: Resume graph with stream
+            with console.status(
+                "[bold cyan]Applying data remediations & synthesizing records...[/bold cyan]"
+            ) as status:
+                for chunk in graph.stream(Command(resume=human_decisions), config=config, stream_mode="updates"):
+                    for node_name in chunk:
+                        if node_name == "apply_resolutions":
+                            status.update(
+                                "[bold cyan][TOOL: EXPORTER][/bold cyan] Exporting clean dataset and audit report..."
+                            )
+                            console.print(
+                                "  [bold green]✓[/bold green] [dim][TOOL: TRANSFORMER][/dim] Applied human resolutions & verified cleanliness."
+                            )
+                        elif node_name == "export":
+                            console.print(
+                                "  [bold green]✓[/bold green] [dim][TOOL: EXPORTER][/dim] Clean dataset and audit documentation exported."
+                            )
+        else:
+            if dry_run:
+                manifest = build_execution_manifest(
+                    raw_path=str(raw_path),
+                    processed_path=output,
+                    session_id=thread_id,
+                    total_rows=state_snapshot.values.get("initial_row_count", 0),
+                    audit_trail=state_snapshot.values.get("audit_trail", []),
+                    critical_issues=[],
+                    recommended_strategies={},
+                    profile=profile_data,
+                )
+                render_execution_manifest(manifest)
+                console.print(
+                    Panel.fit(
+                        "[bold yellow]► DRY-RUN COMPLETE:[/bold yellow] Cleanliness verified. No files were modified or written to disk.",
+                        border_style="yellow",
+                    )
+                )
+                raise typer.Exit(code=0) from None
 
         # Final Summary & Audit Report
         final_state = graph.get_state(config).values
@@ -211,9 +326,12 @@ def run(
 
         console.print(f"\n[bold]Output Dataset:[/bold] [green]{final_state.get('processed_file_path')}[/green]\n")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         console.print(f"\n[bold red]Pipeline Execution Failed:[/bold red] {e}\n")
         logger.exception(f"Unhandled error during pipeline run: {e}")
+        raise typer.Exit(code=1) from None
         raise typer.Exit(code=1) from None
 
 

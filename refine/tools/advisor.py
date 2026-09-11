@@ -1,4 +1,5 @@
 import os
+import re
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -99,3 +100,35 @@ def generate_expert_advice(profile: dict[str, Any], critical_issues: list) -> st
     except Exception:
         # If Ollama daemon is down or model is not pulled, safely return heuristic reasoning
         return heuristic_advice
+
+
+def get_recommended_strategies(critical_issues: list[dict[str, Any]], advice_text: str = "") -> dict[str, str]:
+    """Extracts or deduces a single decisive recommended strategy per anomalous column."""
+    recommendations: dict[str, str] = {}
+    valid_strategies = {"DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS", "MANUAL_INPUT"}
+
+    for issue in critical_issues:
+        col = issue.get("column")
+        if not col or col in recommendations:
+            continue
+
+        # 1. If advice_text is provided, attempt regex extraction for this column
+        if advice_text:
+            pattern = rf"['\"]?{re.escape(col)}['\"]?.*?Önerilen Karar:\s*([A-Z_]+)"
+            match = re.search(pattern, advice_text, re.DOTALL | re.IGNORECASE)
+            if match and match.group(1).upper() in valid_strategies:
+                recommendations[col] = match.group(1).upper()
+                continue
+
+        # 2. Heuristic rule-based mapping (aligned with RULES.md)
+        itype = issue.get("type", "")
+        if itype == "CLASS_IMBALANCE":
+            recommendations[col] = "SYNTHETIC_SYNTHESIS"
+        elif itype == "STATISTICAL_OUTLIER":
+            recommendations[col] = "SYNTHETIC_SYNTHESIS"
+        elif itype in ("INVALID_BOUNDS", "HIGH_NULL_RATIO"):
+            recommendations[col] = "STATISTICAL_IMPUTE"
+        else:
+            recommendations[col] = "STATISTICAL_IMPUTE"
+
+    return recommendations
