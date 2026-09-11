@@ -7,8 +7,35 @@ from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 console = Console()
+
+
+def stream_line(
+    markup_or_text: str,
+    stream: bool = True,
+    char_delay: float = 0.015,
+) -> None:
+    """Renders a single line with typewriter-style streaming."""
+    if not console.is_terminal or not stream:
+        console.print(markup_or_text)
+        return
+
+    try:
+        t = Text.from_markup(markup_or_text)
+    except Exception:
+        console.print(markup_or_text)
+        return
+
+    if len(t) == 0:
+        console.print()
+        return
+
+    with Live(console=console, refresh_per_second=60) as live:
+        for i in range(1, len(t) + 1):
+            live.update(t[:i])
+            time.sleep(char_delay)
 
 
 def render_profile_table(profile: dict[str, Any], stream: bool = True) -> None:
@@ -39,7 +66,7 @@ def render_profile_table(profile: dict[str, Any], stream: bool = True) -> None:
         with Live(table, console=console, refresh_per_second=25):
             for row in rows:
                 table.add_row(*row)
-                time.sleep(0.04)
+                time.sleep(0.12)
     else:
         for row in rows:
             table.add_row(*row)
@@ -52,7 +79,7 @@ def render_streaming_panel(
     body_text: str,
     border_style: str = "cyan",
     stream: bool = True,
-    word_delay: float = 0.007,
+    word_delay: float = 0.035,
 ) -> None:
     """Renders a panel with ChatGPT-style streaming text effect."""
     full_text = f"{header_text}\n\n{body_text}" if header_text else body_text
@@ -212,7 +239,7 @@ def render_execution_manifest(manifest: dict[str, Any], stream: bool = True) -> 
                         expand=False,
                     )
                 )
-                time.sleep(0.03)
+                time.sleep(0.08)
     else:
         panel_content = "\n".join(lines)
         console.print(

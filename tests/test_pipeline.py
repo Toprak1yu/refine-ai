@@ -417,11 +417,14 @@ def test_drop_strategy_removes_column_not_rows():
 
 
 def test_render_streaming_panel():
-    from refine.profiler.reporters import render_streaming_panel
+    from refine.profiler.reporters import render_streaming_panel, stream_line
 
     # Test non-interactive streaming (stream=False and stream=True in non-terminal env)
     render_streaming_panel("Test Panel", "Header", "Body word1 word2", stream=False)
     render_streaming_panel("Test Panel 2", "Header 2", "Body word1 word2", stream=True)
+    stream_line("  [bold green]✓[/bold green] [dim][TOOL: TEST][/dim] Sample status line", stream=False)
+    stream_line("  [bold green]✓[/bold green] [dim][TOOL: TEST][/dim] Sample status line", stream=True)
+    stream_line("", stream=True)
 
 
 def test_cli_no_stream_option(tmp_path):

@@ -9,6 +9,7 @@ import typer
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 from rich.console import Console
+from rich.live import Live
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
@@ -21,6 +22,7 @@ from refine.profiler.reporters import (
     render_execution_manifest,
     render_profile_table,
     render_streaming_panel,
+    stream_line,
 )
 from refine.profiler.stats import profile_dataset
 from refine.schema_inference import infer_schema
@@ -61,10 +63,15 @@ def render_interrupt_ui(interrupt_payload: dict, show_advice: bool = True, strea
     table.add_column("Issue Type", style="magenta")
     table.add_column("Details", style="white")
 
-    for issue in issues:
-        table.add_row(issue["column"], issue["type"], issue["message"])
-
-    console.print(table)
+    if console.is_terminal and stream:
+        with Live(table, console=console, refresh_per_second=25):
+            for issue in issues:
+                table.add_row(issue["column"], issue["type"], issue["message"])
+                time.sleep(0.12)
+    else:
+        for issue in issues:
+            table.add_row(issue["column"], issue["type"], issue["message"])
+        console.print(table)
     console.print(f"\n[bold]Available Remediation Strategies:[/bold] [green]{', '.join(strategies)}[/green]\n")
 
     decisions: dict[str, str] = {}
@@ -202,34 +209,37 @@ def run(
 
     try:
         # Step 1: Run graph stream until completion or interrupt
-        with console.status("[bold cyan]Executing pipeline graph...[/bold cyan]") as status:
-            for chunk in graph.stream(initial_state, config=config, stream_mode="updates"):
-                for node_name in chunk:
-                    if node_name == "schema_inference":
-                        status.update(
-                            "[bold cyan][TOOL: PROFILER][/bold cyan] Profiling statistical distributions & bounds..."
-                        )
-                        console.print(
-                            "  [bold green]✓[/bold green] [dim][TOOL: SCHEMA_INFERENCE][/dim] Inferred column roles and semantic types."
-                        )
-                    elif node_name == "profile":
-                        status.update(
-                            "[bold cyan][TOOL: CLEANER][/bold cyan] Running deterministic cleaning operations..."
-                        )
-                        console.print(
-                            "  [bold green]✓[/bold green] [dim][TOOL: PROFILER][/dim] Statistical profile completed & anomalies detected."
-                        )
-                    elif node_name == "deterministic_clean":
-                        status.update(
-                            "[bold cyan][TOOL: ADVISOR][/bold cyan] Evaluating anomalies against operational governance rules..."
-                        )
-                        console.print(
-                            "  [bold green]✓[/bold green] [dim][TOOL: CLEANER][/dim] Whitespace & canonical aliases standardized."
-                        )
-                    elif node_name == "evaluate_anomalies":
-                        console.print(
-                            "  [bold green]✓[/bold green] [dim][TOOL: ADVISOR][/dim] AI advisor synthesized remediation strategies."
-                        )
+        console.print("[bold cyan]Executing pipeline graph...[/bold cyan]")
+        for chunk in graph.stream(initial_state, config=config, stream_mode="updates"):
+            for node_name in chunk:
+                if node_name == "schema_inference":
+                    stream_line(
+                        "  [bold green]✓[/bold green] [dim][TOOL: SCHEMA_INFERENCE][/dim] Inferred column roles and semantic types.",
+                        stream=stream,
+                    )
+                    if console.is_terminal and stream:
+                        time.sleep(0.12)
+                elif node_name == "profile":
+                    stream_line(
+                        "  [bold green]✓[/bold green] [dim][TOOL: PROFILER][/dim] Statistical profile completed & anomalies detected.",
+                        stream=stream,
+                    )
+                    if console.is_terminal and stream:
+                        time.sleep(0.12)
+                elif node_name == "deterministic_clean":
+                    stream_line(
+                        "  [bold green]✓[/bold green] [dim][TOOL: CLEANER][/dim] Whitespace & canonical aliases standardized.",
+                        stream=stream,
+                    )
+                    if console.is_terminal and stream:
+                        time.sleep(0.12)
+                elif node_name == "evaluate_anomalies":
+                    stream_line(
+                        "  [bold green]✓[/bold green] [dim][TOOL: ADVISOR][/dim] AI advisor synthesized remediation strategies.",
+                        stream=stream,
+                    )
+                    if console.is_terminal and stream:
+                        time.sleep(0.12)
 
         # Check if graph paused due to interrupt()
         state_snapshot = graph.get_state(config)
@@ -286,22 +296,22 @@ def run(
 
             console.print("\n[bold green]► Resuming execution graph with decisions...[/bold green]\n")
             # Step 2: Resume graph with stream
-            with console.status(
-                "[bold cyan]Applying data remediations & synthesizing records...[/bold cyan]"
-            ) as status:
-                for chunk in graph.stream(Command(resume=human_decisions), config=config, stream_mode="updates"):
-                    for node_name in chunk:
-                        if node_name == "apply_resolutions":
-                            status.update(
-                                "[bold cyan][TOOL: EXPORTER][/bold cyan] Exporting clean dataset and audit report..."
-                            )
-                            console.print(
-                                "  [bold green]✓[/bold green] [dim][TOOL: TRANSFORMER][/dim] Applied human resolutions & verified cleanliness."
-                            )
-                        elif node_name == "export":
-                            console.print(
-                                "  [bold green]✓[/bold green] [dim][TOOL: EXPORTER][/dim] Clean dataset and audit documentation exported."
-                            )
+            for chunk in graph.stream(Command(resume=human_decisions), config=config, stream_mode="updates"):
+                for node_name in chunk:
+                    if node_name == "apply_resolutions":
+                        stream_line(
+                            "  [bold green]✓[/bold green] [dim][TOOL: TRANSFORMER][/dim] Applied human resolutions & verified cleanliness.",
+                            stream=stream,
+                        )
+                        if console.is_terminal and stream:
+                            time.sleep(0.12)
+                    elif node_name == "export":
+                        stream_line(
+                            "  [bold green]✓[/bold green] [dim][TOOL: EXPORTER][/dim] Clean dataset and audit documentation exported.",
+                            stream=stream,
+                        )
+                        if console.is_terminal and stream:
+                            time.sleep(0.12)
         else:
             if dry_run:
                 manifest = build_execution_manifest(
@@ -329,9 +339,9 @@ def run(
 
         console.print("\n[bold cyan]Audit Log Trail:[/bold cyan]")
         for entry in final_state.get("audit_trail", []):
+            stream_line(f" [dim]•[/dim] {entry}", stream=stream, char_delay=0.010)
             if console.is_terminal and stream:
-                time.sleep(0.03)
-            console.print(f" [dim]•[/dim] {entry}")
+                time.sleep(0.06)
 
         console.print(f"\n[bold]Output Dataset:[/bold] [green]{final_state.get('processed_file_path')}[/green]\n")
 
