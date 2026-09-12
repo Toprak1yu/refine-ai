@@ -15,50 +15,84 @@ def _is_ollama_online(base_url: str) -> bool:
         return False
 
 
+def _format_col_issues(issues: list[dict[str, Any]]) -> str:
+    parts = []
+    seen = set()
+    for issue in issues:
+        itype = issue.get("type", "")
+        if itype == "INVALID_BOUNDS" and "bounds" not in seen:
+            seen.add("bounds")
+            parts.append("Geçersiz Sınır Değerleri")
+        elif itype == "STATISTICAL_OUTLIER" and "outlier" not in seen:
+            seen.add("outlier")
+            parts.append("Aşırı Uç Değerler")
+        elif itype == "CLASS_IMBALANCE" and "imbalance" not in seen:
+            seen.add("imbalance")
+            ratio = issue.get("minority_ratio", 0) * 100
+            parts.append(f"Sınıf Dengesizliği - %{ratio:.1f}")
+        elif itype == "HIGH_NULL_RATIO" and "null" not in seen:
+            seen.add("null")
+            ratio = issue.get("ratio", 0) * 100
+            parts.append(f"Yüksek Boşluk Oranı - %{ratio:.1f}")
+        elif itype not in seen and itype:
+            seen.add(itype)
+            parts.append(itype)
+    return " & ".join(parts)
+
+
+def _build_column_recommendation(col: str, issues: list[dict[str, Any]]) -> str:
+    issue_desc = _format_col_issues(issues)
+    issue_types = {i.get("type", "") for i in issues}
+
+    if "CLASS_IMBALANCE" in issue_types:
+        imb_issue = next(i for i in issues if i.get("type") == "CLASS_IMBALANCE")
+        val = imb_issue.get("minority_value", 1)
+        strategy = "SYNTHETIC_SYNTHESIS"
+        impact = (
+            f"Azınlık sınıfı ({val}) için sentetik satırlar türetilerek denge %35'e çıkarılır; "
+            f"modelin yanlı (biased) öğrenmesi engellenir, toplam satır sayısı artar."
+        )
+    elif "INVALID_BOUNDS" in issue_types and "STATISTICAL_OUTLIER" in issue_types:
+        strategy = "STATISTICAL_IMPUTE"
+        impact = (
+            "Hem mantıksal sınır dışı hatalar hem de aşırı uç sapmalar medyan ile doldurularak "
+            "iki sorun tek adımda çözülür; veri bütünlüğü sağlanır, satır sayısı sabit kalır."
+        )
+    elif "INVALID_BOUNDS" in issue_types:
+        strategy = "STATISTICAL_IMPUTE"
+        impact = (
+            "Bozuk ve mantıksal sınır dışı hücreler medyan ile doldurulur; "
+            "veri kaybı yaşanmaz, satır sayısı sabit kalır."
+        )
+    elif "STATISTICAL_OUTLIER" in issue_types:
+        strategy = "SYNTHETIC_SYNTHESIS"
+        impact = (
+            "Uç değerler doğal Gauss dağılımına uygun gerçekçi değerlerle değiştirilir; "
+            "verinin varyansı ve çan eğrisi şekli korunur."
+        )
+    elif "HIGH_NULL_RATIO" in issue_types:
+        strategy = "STATISTICAL_IMPUTE"
+        impact = "Boş hücreler istatistiksel merkezi değerle tamamlanarak veri kaybı önlenir."
+    else:
+        strategy = "STATISTICAL_IMPUTE"
+        impact = "Anomali içeren kayıtlar medyan/mod ile doldurularak veri bütünlüğü korunur."
+
+    return f"• '{col}' ({issue_desc}):\n  ➜ Önerilen Karar: {strategy}\n  ➜ Seçimin Sonucu: {impact}"
+
+
 def generate_expert_advice(profile: dict[str, Any], critical_issues: list) -> str:
     """Reads RULES.md, evaluates anomalies via local Ollama, and falls back gracefully if offline."""
     # 1. Read operational contract (RULES.md)
     rules_path = Path("RULES.md")
     rules_content = rules_path.read_text() if rules_path.exists() else "Apply standard statistical governance."
 
-    # 2. Dynamic heuristic fallback when local LLM server is unreachable
-    recommendations = []
+    # 2. Dynamic heuristic fallback when local LLM server is unreachable (group by column)
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for issue in critical_issues:
         col = issue.get("column", "unknown")
-        itype = issue.get("type", "")
-        if itype == "INVALID_BOUNDS":
-            recommendations.append(
-                f"• '{col}' (Geçersiz Sınır Değerleri):\n"
-                f"  ➜ Önerilen Karar: STATISTICAL_IMPUTE\n"
-                f"  ➜ Seçimin Sonucu: Bozuk ve geçersiz hücreler medyan ile doldurulur; veri kaybı yaşanmaz, satır sayısı sabit kalır."
-            )
-        elif itype == "STATISTICAL_OUTLIER":
-            recommendations.append(
-                f"• '{col}' (Aşırı Uç Değerler):\n"
-                f"  ➜ Önerilen Karar: SYNTHETIC_SYNTHESIS\n"
-                f"  ➜ Seçimin Sonucu: Uç değerler doğal Gauss dağılımına uygun gerçekçi değerlerle değiştirilir; verinin varyansı ve çan eğrisi şekli korunur."
-            )
-        elif itype == "CLASS_IMBALANCE":
-            ratio = issue.get("minority_ratio", 0) * 100
-            val = issue.get("minority_value", 1)
-            recommendations.append(
-                f"• '{col}' (Sınıf Dengesizliği - %{ratio:.1f}):\n"
-                f"  ➜ Önerilen Karar: SYNTHETIC_SYNTHESIS\n"
-                f"  ➜ Seçimin Sonucu: Azınlık sınıfı ({val}) için sentetik satırlar türetilerek denge %35'e çıkarılır; modelin yanlı (biased) öğrenmesi engellenir, toplam satır sayısı artar."
-            )
-        elif itype == "HIGH_NULL_RATIO":
-            ratio = issue.get("ratio", 0) * 100
-            recommendations.append(
-                f"• '{col}' (Yüksek Boşluk Oranı - %{ratio:.1f}):\n"
-                f"  ➜ Önerilen Karar: STATISTICAL_IMPUTE\n"
-                f"  ➜ Seçimin Sonucu: Boş hücreler istatistiksel merkezi değerle tamamlanarak veri kaybı önlenir."
-            )
-        else:
-            recommendations.append(
-                f"• '{col}' ({itype}):\n"
-                f"  ➜ Önerilen Karar: STATISTICAL_IMPUTE\n"
-                f"  ➜ Seçimin Sonucu: Anomali içeren kayıtlar medyan/mod ile doldurularak veri bütünlüğü korunur."
-            )
+        grouped.setdefault(col, []).append(issue)
+
+    recommendations = [_build_column_recommendation(col, issues) for col, issues in grouped.items()]
 
     heuristic_advice = (
         "[Local Rule-Engine Fallback]:\n" + "\n\n".join(recommendations)
@@ -107,11 +141,13 @@ def get_recommended_strategies(critical_issues: list[dict[str, Any]], advice_tex
     recommendations: dict[str, str] = {}
     valid_strategies = {"DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS", "MANUAL_INPUT"}
 
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for issue in critical_issues:
         col = issue.get("column")
-        if not col or col in recommendations:
-            continue
+        if col:
+            grouped.setdefault(col, []).append(issue)
 
+    for col, col_issues in grouped.items():
         # 1. If advice_text is provided, attempt regex extraction for this column
         if advice_text:
             pattern = rf"['\"]?{re.escape(col)}['\"]?.*?Önerilen Karar:\s*([A-Z_]+)"
@@ -120,13 +156,15 @@ def get_recommended_strategies(critical_issues: list[dict[str, Any]], advice_tex
                 recommendations[col] = match.group(1).upper()
                 continue
 
-        # 2. Heuristic rule-based mapping (aligned with RULES.md)
-        itype = issue.get("type", "")
-        if itype == "CLASS_IMBALANCE":
+        # 2. Unified heuristic rule-based mapping (aligned with RULES.md)
+        issue_types = {i.get("type", "") for i in col_issues}
+        if "CLASS_IMBALANCE" in issue_types:
             recommendations[col] = "SYNTHETIC_SYNTHESIS"
-        elif itype == "STATISTICAL_OUTLIER":
+        elif "INVALID_BOUNDS" in issue_types and "STATISTICAL_OUTLIER" in issue_types:
+            recommendations[col] = "STATISTICAL_IMPUTE"
+        elif "STATISTICAL_OUTLIER" in issue_types:
             recommendations[col] = "SYNTHETIC_SYNTHESIS"
-        elif itype in ("INVALID_BOUNDS", "HIGH_NULL_RATIO"):
+        elif "INVALID_BOUNDS" in issue_types or "HIGH_NULL_RATIO" in issue_types:
             recommendations[col] = "STATISTICAL_IMPUTE"
         else:
             recommendations[col] = "STATISTICAL_IMPUTE"

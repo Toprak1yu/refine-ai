@@ -306,6 +306,23 @@ def test_get_recommended_strategies():
     assert strat2["salary"] == "STATISTICAL_IMPUTE"
 
 
+def test_generate_expert_advice_unified_column_recommendation():
+    from refine.tools.advisor import generate_expert_advice
+
+    issues = [
+        {"column": "age", "type": "INVALID_BOUNDS", "count": 32},
+        {"column": "age", "type": "STATISTICAL_OUTLIER", "outliers_count": 15},
+        {"column": "churn", "type": "CLASS_IMBALANCE", "minority_ratio": 0.08},
+    ]
+    advice = generate_expert_advice({}, issues)
+
+    # 'age' must appear exactly once, mentioning both issues with a single resolution
+    assert advice.count("• 'age'") == 1
+    assert "Geçersiz Sınır Değerleri & Aşırı Uç Değerler" in advice
+    assert "Önerilen Karar: STATISTICAL_IMPUTE" in advice
+    assert advice.count("• 'churn'") == 1
+
+
 def test_build_execution_manifest():
     from refine.profiler.reporters import build_execution_manifest
 
