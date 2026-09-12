@@ -464,5 +464,45 @@ def version():
     console.print(f"[bold green]refine-ai v{__version__}[/bold green]")
 
 
+@app.callback(invoke_without_command=True)
+def main(
+    ctx: typer.Context,
+):
+    """refine-ai: Autonomous Data Pipeline & Synthesis Agent with HITL Governance."""
+    if ctx.invoked_subcommand is None:
+        console.print(
+            Panel.fit(
+                f"[bold cyan]🚀 refine-ai v{__version__}[/bold cyan]\n"
+                "[dim]Autonomous Data Pipeline & Synthesis Agent with HITL Governance[/dim]",
+                border_style="cyan",
+            )
+        )
+        default_file = "data/raw/dirty_customers.csv"
+        prompt_default = default_file if Path(default_file).exists() else None
+
+        if prompt_default:
+            selected_file = Prompt.ask(
+                "[bold]Lütfen işlenecek CSV dosyasının yolunu girin[/bold]",
+                default=prompt_default,
+            )
+        else:
+            selected_file = Prompt.ask("[bold]Lütfen işlenecek CSV dosyasının yolunu girin[/bold]")
+
+        if not selected_file or not selected_file.strip():
+            console.print("[bold red]Dosya yolu belirtilmedi. Çıkılıyor.[/bold red]")
+            raise typer.Exit(code=1)
+
+        ctx.invoke(
+            run,
+            file=selected_file.strip(),
+            output="data/processed/clean_customers.csv",
+            thread_id="session_001",
+            model=os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b"),
+            seed=42,
+            dry_run=False,
+            stream=True,
+        )
+
+
 if __name__ == "__main__":
     app()

@@ -95,7 +95,7 @@ def generate_expert_advice(profile: dict[str, Any], critical_issues: list) -> st
 
         response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_content)])
 
-        return f"[Ollama: {model_name}]\n{response.content.strip()}"
+        return f"[Ollama: {model_name}]\n\n{response.content.strip()}"
 
     except Exception:
         # If Ollama daemon is down or model is not pulled, safely return heuristic reasoning

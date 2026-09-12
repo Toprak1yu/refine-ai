@@ -445,3 +445,19 @@ def test_cli_no_stream_option(tmp_path):
     )
     assert result.exit_code == 0
     assert "DRY-RUN COMPLETE" in result.output
+
+
+def test_cli_default_interactive_refine(tmp_path):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    runner = CliRunner()
+    raw_file = tmp_path / "raw.csv"
+    df = pl.DataFrame({"id": [1, 2, 3], "val": [10, 20, 30]})
+    df.write_csv(str(raw_file))
+
+    # Passing the file path to interactive prompt
+    result = runner.invoke(app, [], input=f"{raw_file}\ny\n")
+    assert "refine-ai" in result.output
+    assert "Lütfen işlenecek CSV dosyasının yolunu girin" in result.output
