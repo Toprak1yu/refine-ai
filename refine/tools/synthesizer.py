@@ -20,7 +20,6 @@ def set_seed(seed: int = 42) -> None:
     Faker.seed(seed)
 
 
-# Initialize default seed for reproducibility
 set_seed(42)
 
 
@@ -39,7 +38,6 @@ def synthesize_minority_class(
     schema = schema or DatasetSchema()
     total_records = df.height
 
-    # Determine minority class value from schema or auto-detect
     col_schema = schema.columns.get(target_col)
     minority_val = (
         col_schema.minority_class_value
@@ -64,12 +62,10 @@ def synthesize_minority_class(
     if needed_rows <= 0:
         return df, logs
 
-    # Build synthetic rows based on actual schema
     synthetic_rows = _generate_synthetic_rows(df, needed_rows, target_col, minority_val, schema)
 
     syn_df = pl.DataFrame(synthetic_rows)
 
-    # Cast synthetic columns to match original dtypes
     cast_exprs = []
     for col in syn_df.columns:
         if col in df.columns:
@@ -96,7 +92,6 @@ def synthesize_numerical_feature(
     """Synthesizes valid values for missing or extreme outlier numerical fields."""
     logs: list[str] = []
 
-    # Determine bounds for filtering valid data
     lower_bound = valid_bounds[0] if valid_bounds and len(valid_bounds) >= 1 and valid_bounds[0] is not None else 0
     upper_bound = (
         valid_bounds[1] if valid_bounds and len(valid_bounds) >= 2 and valid_bounds[1] is not None else float("inf")
@@ -113,14 +108,12 @@ def synthesize_numerical_feature(
     mean_val = float(np.mean(valid_data))
     std_val = float(np.std(valid_data))
 
-    # Identify anomalous values
     anomalous_mask = (pl.col(column).is_null()) | (pl.col(column) >= upper_bound) | (pl.col(column) <= lower_bound)
     anom_count = df.filter(anomalous_mask).height
 
     if anom_count == 0:
         return df, logs
 
-    # Generate replacement values from Gaussian distribution, clipped to valid bounds
     syn_values = np.clip(
         np.random.normal(mean_val, std_val, anom_count),
         lower_bound,
@@ -137,11 +130,6 @@ def synthesize_numerical_feature(
         f"using Gaussian distribution (mean={mean_val:,.0f}, bounds=[{lower_bound:,.0f}, {upper_bound:,.0f}])."
     )
     return df, logs
-
-
-# ────────────────────────────────────────────────────────────────────
-# Internal Helpers
-# ────────────────────────────────────────────────────────────────────
 
 
 def _detect_minority_value(df: pl.DataFrame, target_col: str) -> Any:
@@ -163,7 +151,6 @@ def _generate_synthetic_rows(
     rows: list[dict[str, Any]] = []
     max_id = df.height + 1000
 
-    # Pre-compute column generators
     generators = _build_column_generators(df, schema, target_col)
 
     for i in range(n_rows):
@@ -197,7 +184,6 @@ def _build_column_generators(df: pl.DataFrame, schema: DatasetSchema, target_col
             else ("numerical" if col_type in ("Int32", "Int64", "Float32", "Float64") else "text")
         )
 
-        # ── ID columns: generate unique synthetic IDs ────────────
         if role == "id":
             if "Int" in col_type:
                 generators[col] = lambda i, max_id, _col=col: max_id + i
@@ -205,7 +191,6 @@ def _build_column_generators(df: pl.DataFrame, schema: DatasetSchema, target_col
                 generators[col] = lambda i, max_id, _col=col: f"SYN_{max_id + i}"
             continue
 
-        # ── Ignore columns: generate fake data or null ───────────
         if role == "ignore":
             if "name" in col.lower():
                 generators[col] = lambda i, max_id: fake.name()
@@ -217,7 +202,6 @@ def _build_column_generators(df: pl.DataFrame, schema: DatasetSchema, target_col
                 generators[col] = lambda i, max_id: None
             continue
 
-        # ── Numerical features: sample from Gaussian ─────────────
         if semantic == "numerical" or col_type in ("Int32", "Int64", "Float32", "Float64"):
             bounds = col_schema.valid_bounds if col_schema else None
             non_null = df[col].drop_nulls().to_numpy()
@@ -236,14 +220,12 @@ def _build_column_generators(df: pl.DataFrame, schema: DatasetSchema, target_col
                 generators[col] = _gen_num
             continue
 
-        # ── Categorical features: sample from existing values ────
         if semantic == "categorical" or col_type == "String":
             existing_vals = df[col].drop_nulls().unique().to_list()
             if existing_vals:
                 generators[col] = lambda i, max_id, _vals=existing_vals: random.choice(_vals)
             continue
 
-        # ── Binary features: sample from existing distribution ───
         if semantic == "binary":
             val_counts = df[col].drop_nulls().value_counts()
             values = val_counts[col].to_list()

@@ -75,7 +75,6 @@ def render_interrupt_ui(interrupt_payload: dict, show_advice: bool = True, strea
     console.print(f"\n[bold]Available Remediation Strategies:[/bold] [green]{', '.join(strategies)}[/green]\n")
 
     decisions: dict[str, str] = {}
-    # Preserve deterministic order matching the issues table
     unique_columns = list(dict.fromkeys(issue["column"] for issue in issues))
 
     for col in unique_columns:
@@ -135,7 +134,6 @@ def _validate_input_file(file_path: Path) -> None:
         raise typer.Exit(code=1)
 
     try:
-        # Quick sniff to check CSV parsing validity
         sample = pl.read_csv(file_path, n_rows=5)
         if sample.width == 0:
             console.print(f"\n[bold red]Error:[/bold red] Target file '{file_path}' contains no valid columns.\n")
@@ -178,7 +176,6 @@ def run(
         logger.error(f"SqliteSaver initialization error: {e}")
         raise typer.Exit(code=1) from None
 
-    # Compile graph with persistent memory
     graph = build_pipeline_graph().compile(checkpointer=checkpointer)
     config = {"configurable": {"thread_id": thread_id}}
 
@@ -208,7 +205,6 @@ def run(
     }
 
     try:
-        # Step 1: Run graph stream until completion or interrupt
         console.print("[bold cyan]Executing pipeline graph...[/bold cyan]")
         for chunk in graph.stream(initial_state, config=config, stream_mode="updates"):
             for node_name in chunk:
@@ -241,7 +237,6 @@ def run(
                     if console.is_terminal and stream:
                         time.sleep(0.12)
 
-        # Check if graph paused due to interrupt()
         state_snapshot = graph.get_state(config)
         profile_data = state_snapshot.values.get("profile")
 
@@ -262,7 +257,6 @@ def run(
                     stream=stream,
                 )
 
-            # Build and render Planned Execution Manifest
             manifest = build_execution_manifest(
                 raw_path=str(raw_path),
                 processed_path=output,
@@ -275,7 +269,6 @@ def run(
             )
             render_execution_manifest(manifest, stream=stream)
 
-            # Prompt operator: Approve recommended plan or enter manual column governance
             approve = Confirm.ask("\n[bold]Do you approve executing these file operations?[/bold]", default=True)
 
             if approve:
@@ -295,7 +288,6 @@ def run(
                 raise typer.Exit(code=0) from None
 
             console.print("\n[bold green]► Resuming execution graph with decisions...[/bold green]\n")
-            # Step 2: Resume graph with stream
             for chunk in graph.stream(Command(resume=human_decisions), config=config, stream_mode="updates"):
                 for node_name in chunk:
                     if node_name == "apply_resolutions":
@@ -333,7 +325,6 @@ def run(
                 )
                 raise typer.Exit(code=0) from None
 
-        # Final Summary & Audit Report
         final_state = graph.get_state(config).values
         console.print(Panel.fit("[bold green]✓ PIPELINE EXECUTION COMPLETED[/bold green]", border_style="green"))
 
@@ -482,14 +473,14 @@ def main(
 
         if prompt_default:
             selected_file = Prompt.ask(
-                "[bold]Lütfen işlenecek CSV dosyasının yolunu girin[/bold]",
+                "[bold]Please enter the path to the CSV dataset[/bold]",
                 default=prompt_default,
             )
         else:
-            selected_file = Prompt.ask("[bold]Lütfen işlenecek CSV dosyasının yolunu girin[/bold]")
+            selected_file = Prompt.ask("[bold]Please enter the path to the CSV dataset[/bold]")
 
         if not selected_file or not selected_file.strip():
-            console.print("[bold red]Dosya yolu belirtilmedi. Çıkılıyor.[/bold red]")
+            console.print("[bold red]No file path specified. Exiting.[/bold red]")
             raise typer.Exit(code=1)
 
         ctx.invoke(

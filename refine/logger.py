@@ -17,7 +17,6 @@ def setup_logger(log_file: str = "refine.log", level: int = logging.INFO) -> log
         logger.setLevel(level)
         logger.propagate = False
 
-        # File handler for persistent execution logs
         try:
             log_path = Path(log_file)
             log_path.parent.mkdir(parents=True, exist_ok=True)

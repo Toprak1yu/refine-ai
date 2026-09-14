@@ -119,10 +119,8 @@ def build_execution_manifest(
 
     planned_actions: list[dict[str, str]] = []
 
-    # 1. Deterministic clean actions from audit trail
     for log in audit_trail:
         if "Normalized" in log and "aliases in" in log:
-            # e.g. "Normalized 3 aliases in 'country' to canonical values: ['United States']."
             col = "country"
             if "'" in log:
                 col = log.split("'")[1]
@@ -142,14 +140,12 @@ def build_execution_manifest(
                 }
             )
 
-    # 2. Recommended anomaly remediation actions
     col_stats = profile.get("columns", {}) if profile else {}
     for col, strat in recommended_strategies.items():
         stats = col_stats.get(col, {})
         outliers = stats.get("outliers_count", 0)
         nulls = stats.get("null_count", 0)
 
-        # Check if column has class imbalance
         is_imbalance = any(i.get("type") == "CLASS_IMBALANCE" and i.get("column") == col for i in critical_issues)
 
         if strat == "STATISTICAL_IMPUTE":

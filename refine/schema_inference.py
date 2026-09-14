@@ -10,10 +10,6 @@ import numpy as np
 import polars as pl
 from pydantic import BaseModel, Field
 
-# ────────────────────────────────────────────────────────────────────
-# Schema Models
-# ────────────────────────────────────────────────────────────────────
-
 
 class ColumnSchema(BaseModel):
     """Schema definition for a single dataset column."""
@@ -39,11 +35,6 @@ class DatasetSchema(BaseModel):
     columns: dict[str, ColumnSchema] = {}
 
 
-# ────────────────────────────────────────────────────────────────────
-# Dataset Summary Builder (LLM'e gönderilecek özet)
-# ────────────────────────────────────────────────────────────────────
-
-
 def _build_dataset_summary(df: pl.DataFrame) -> str:
     """Builds a concise text summary of the dataset for LLM consumption."""
     lines: list[str] = []
@@ -65,7 +56,6 @@ def _build_dataset_summary(df: pl.DataFrame) -> str:
 
         lines.append(f"{col:<25} {col_type:<10} {null_count:<8} {null_pct:<8} {unique_count:<8} {sample_str}")
 
-    # Numerical column statistics
     numerical_cols = [col for col in df.columns if str(df.schema[col]) in ("Int32", "Int64", "Float32", "Float64")]
     if numerical_cols:
         lines.append("")
@@ -78,7 +68,6 @@ def _build_dataset_summary(df: pl.DataFrame) -> str:
                     f"mean={np.mean(vals):.2f}, median={np.median(vals):.2f}, std={np.std(vals):.2f}"
                 )
 
-    # First 5 rows as sample
     lines.append("")
     lines.append("Sample rows (first 5):")
     for row in df.head(5).to_dicts():
@@ -86,10 +75,6 @@ def _build_dataset_summary(df: pl.DataFrame) -> str:
 
     return "\n".join(lines)
 
-
-# ────────────────────────────────────────────────────────────────────
-# LLM-Based Schema Inference (Ollama)
-# ────────────────────────────────────────────────────────────────────
 
 _LLM_SYSTEM_PROMPT = """You are a Senior Data Architect. Analyze the dataset summary below and output a JSON schema that describes the structure of this dataset.
 
@@ -134,7 +119,6 @@ def _infer_schema_with_llm(df: pl.DataFrame, model_name: str | None = None) -> D
     model = model_name or os.getenv("OLLAMA_MODEL", "qwen2.5-coder:14b")
     base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
-    # Fast-fail if Ollama is not active to prevent slow timeouts
     if not _is_ollama_online(base_url):
         return None
 
@@ -156,7 +140,6 @@ def _infer_schema_with_llm(df: pl.DataFrame, model_name: str | None = None) -> D
 
         raw = response.content.strip()
 
-        # Extract JSON from potential markdown code fences
         json_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", raw, re.DOTALL)
         if json_match:
             raw = json_match.group(1).strip()
@@ -168,11 +151,6 @@ def _infer_schema_with_llm(df: pl.DataFrame, model_name: str | None = None) -> D
         return None
 
 
-# ────────────────────────────────────────────────────────────────────
-# Heuristic Fallback (Model-free inference)
-# ────────────────────────────────────────────────────────────────────
-
-# Name patterns used for heuristic column role detection
 _ID_PATTERNS = re.compile(
     r"(?:^id$|_id$|^index$|^key$|_key$|^uuid$|^pk$|product_code|item_code|customer_code)",
     re.IGNORECASE,
@@ -203,7 +181,6 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
         is_string = col_type == "String"
         uniqueness_ratio = (unique_count / total_non_null) if total_non_null > 0 else 0.0
 
-        # ── 1. ID columns (explicit ID patterns + reasonable uniqueness) ──
         if _ID_PATTERNS.search(col) and (uniqueness_ratio > 0.7 or total_non_null < 10):
             id_columns.append(col)
             columns[col] = ColumnSchema(
@@ -213,7 +190,6 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
             )
             continue
 
-        # ── 2. Ignore columns (free text, comments, names, addresses) ────
         if is_string and (_IGNORE_PATTERNS.search(col) or (uniqueness_ratio > 0.7 and unique_count > 30)):
             ignore_columns.append(col)
             columns[col] = ColumnSchema(
@@ -223,19 +199,17 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
             )
             continue
 
-        # ── 3. Binary columns (numerical or string, 2 unique values) ──
         if unique_count == 2 and total_non_null > 5:
             minority_val = _detect_minority_class(df, col)
             target_candidates.append(col)
             columns[col] = ColumnSchema(
-                role="feature",  # may be promoted to target below
+                role="feature",
                 semantic_type="binary",
                 minority_class_value=minority_val,
                 description=f"Binary feature ({unique_count} unique values)",
             )
             continue
 
-        # ── Numerical features ───────────────────────────────────
         if is_numerical:
             bounds = _estimate_bounds(df, col)
             columns[col] = ColumnSchema(
@@ -246,7 +220,6 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
             )
             continue
 
-        # ── Categorical features ─────────────────────────────────
         if is_string:
             aliases = _detect_aliases_heuristic(non_null.unique().to_list())
             columns[col] = ColumnSchema(
@@ -257,13 +230,11 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
             )
             continue
 
-        # ── Fallback ─────────────────────────────────────────────
         columns[col] = ColumnSchema(
             role="feature",
             semantic_type="numerical" if is_numerical else "categorical",
         )
 
-    # ── Select target column from candidates ─────────────────────
     target_column = _select_target(target_candidates)
     if target_column and target_column in columns:
         columns[target_column].role = "target"
@@ -298,7 +269,6 @@ def _estimate_bounds(df: pl.DataFrame, col: str) -> list[float] | None:
     lower = q25 - multiplier * iqr if multiplier > 0 else float(np.min(vals))
     upper = q75 + multiplier * iqr if multiplier > 0 else float(np.max(vals))
 
-    # If 95%+ of values are non-negative, data is non-negative by nature (e.g. counts, duration, physical metrics)
     if (np.sum(vals >= 0) / len(vals)) >= 0.95 and lower < 0:
         lower = 0.0
 
@@ -315,7 +285,6 @@ def _detect_aliases_heuristic(values: list[str], col_name: str = "") -> dict[str
     aliases: dict[str, list[str]] = {}
     assigned: set[str] = set()
 
-    # 1. Group by cleaned alphanumeric lowercase key (case/punctuation variants)
     groups: dict[str, list[str]] = {}
     for val in values:
         clean_key = re.sub(r"[^a-zA-Z0-9]", "", val).lower()
@@ -330,12 +299,10 @@ def _detect_aliases_heuristic(values: list[str], col_name: str = "") -> dict[str
                 aliases[canonical] = alias_list
                 assigned.update(variants)
 
-    # 2. Algorithmic multi-word acronym matching (e.g. initials of multi-word string matching short codes)
     for val in values:
         words = [w for w in re.split(r"[\s_\-]+", val.strip()) if w]
         if len(words) > 1:
             initials = "".join(w[0] for w in words).upper()
-            # Match values that are the exact initials, or initials with prefix/suffix (e.g. US, USA, US_OFFICIAL)
             matching = [
                 v
                 for v in values
@@ -362,18 +329,11 @@ def _select_target(candidates: list[str]) -> str | None:
     if not candidates:
         return None
 
-    # Prefer columns whose name suggests a target/label
     named = [c for c in candidates if _TARGET_PATTERNS.search(c)]
     if named:
         return named[0]
 
-    # Otherwise pick the first binary candidate
     return candidates[0]
-
-
-# ────────────────────────────────────────────────────────────────────
-# Schema Dict Parser (shared by LLM and external configs)
-# ────────────────────────────────────────────────────────────────────
 
 
 def _parse_schema_dict(schema_dict: dict[str, Any], df: pl.DataFrame) -> DatasetSchema:
@@ -401,11 +361,6 @@ def _parse_schema_dict(schema_dict: dict[str, Any], df: pl.DataFrame) -> Dataset
     )
 
 
-# ────────────────────────────────────────────────────────────────────
-# Public Entry Point
-# ────────────────────────────────────────────────────────────────────
-
-
 def infer_schema(df: pl.DataFrame, model_name: str | None = None) -> tuple[DatasetSchema, str]:
     """
     Infers the dataset schema using LLM first, falling back to heuristics.
@@ -418,11 +373,9 @@ def infer_schema(df: pl.DataFrame, model_name: str | None = None) -> tuple[Datas
         A tuple of (DatasetSchema, inference_method) where inference_method
         is ``"llm"`` or ``"heuristic"``.
     """
-    # 1. Try LLM inference
     schema = _infer_schema_with_llm(df, model_name)
     if schema:
         return schema, "llm"
 
-    # 2. Fallback to deterministic heuristics
     schema = _infer_schema_heuristic(df)
     return schema, "heuristic"

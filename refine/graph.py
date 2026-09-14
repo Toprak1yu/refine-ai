@@ -113,7 +113,6 @@ def apply_resolutions_node(state: AgentState) -> dict[str, Any]:
         logger.info(f"Applying human resolutions: {resolutions}")
         df, logs = apply_human_resolutions(df, resolutions, schema)
 
-        # Post-remediation verification
         post_profile = profile_dataset(df, state.get("inferred_schema"))
         remaining = post_profile["critical_issues"]
         if remaining:

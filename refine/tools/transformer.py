@@ -34,14 +34,12 @@ def apply_human_resolutions(
         col_type = str(df.schema[column])
         is_numerical = col_type in ("Int32", "Int64", "Float32", "Float64")
 
-        # ── DROP (Feature Column Removal) ─────────────────────────
         if strategy in ("DROP", "DROP_COLUMN"):
             df = df.drop(column)
             audit_logs.append(
                 f"Applied DROP strategy on '{column}': removed feature column from dataset (preserved all {df.height} records)."
             )
 
-        # ── STATISTICAL_IMPUTE ───────────────────────────────────
         elif strategy == "STATISTICAL_IMPUTE":
             if is_numerical:
                 df, logs = _impute_numerical(df, column, col_schema)
@@ -52,7 +50,6 @@ def apply_human_resolutions(
             else:
                 audit_logs.append(f"STATISTICAL_IMPUTE skipped for '{column}': unsupported type '{col_type}'.")
 
-        # ── SYNTHETIC_SYNTHESIS ──────────────────────────────────
         elif strategy == "SYNTHETIC_SYNTHESIS":
             is_target = (col_schema and col_schema.role == "target") or column == schema.target_column
 
@@ -72,7 +69,6 @@ def apply_human_resolutions(
                     f"but no synthesis method available for type '{col_type}'. Skipped."
                 )
 
-        # ── MANUAL_INPUT ─────────────────────────────────────────
         elif strategy.startswith("MANUAL_INPUT"):
             parts = strategy.split(":", 1)
             raw_val = parts[1].strip() if len(parts) > 1 else ""
@@ -111,7 +107,6 @@ def _apply_manual_override(
         logs.append(f"MANUAL_INPUT failed on '{column}': could not cast '{raw_val}' to {col_type} ({e}).")
         return df, logs
 
-    # Build anomaly filter for numerical columns or simple null filter for non-numerical
     if col_type in ("Int32", "Int64", "Float32", "Float64"):
         non_nulls = df[column].drop_nulls().to_numpy()
         anomaly_conditions = [pl.col(column).is_null()]

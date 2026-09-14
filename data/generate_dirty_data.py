@@ -16,31 +16,27 @@ def generate_dirty_dataset(n_rows: int = 500, output_path: str = "data/raw/dirty
     country_variations = ["US", "USA", "United States", "united states", "US_OFFICIAL", None]
 
     for i in range(n_rows):
-        # 1. Age Anomalies: Negative, impossible bounds, or missing
         r_age = random.random()
         if r_age < 0.05:
-            age = -random.randint(1, 10)  # Negative age anomaly
+            age = -random.randint(1, 10)
         elif r_age < 0.08:
-            age = random.randint(150, 300)  # Impossible age bound
+            age = random.randint(150, 300)
         elif r_age < 0.20:
-            age = None  # Missing value (triggers the 20% rule across the column)
+            age = None
         else:
             age = random.randint(18, 70)
 
-        # 2. Salary Anomalies: Extreme outliers (|Z-score| > 3.0) or missing
         r_salary = random.random()
         if r_salary < 0.03:
-            salary = random.randint(5_000_000, 20_000_000)  # Extreme outlier
+            salary = random.randint(5_000_000, 20_000_000)
         elif r_salary < 0.10:
             salary = None
         else:
             salary = random.randint(35_000, 180_000)
 
-        # 3. Categorical Inconsistencies
         country = random.choice(country_variations)
         city = random.choice(cities) if random.random() > 0.15 else None
 
-        # 4. Target Label (Churn): Severe class imbalance (~8% churn rate)
         churn = 1 if random.random() < 0.08 else 0
 
         data.append(

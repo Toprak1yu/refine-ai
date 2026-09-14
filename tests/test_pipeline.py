@@ -5,7 +5,6 @@ from refine.tools.cleaner import run_deterministic_clean
 
 
 def test_profiler_detects_outliers():
-    # Standart sapmayı düşük tutmak için 30 adet normal veri ve uç değerler ekliyoruz
     ages = [35] * 30 + [-5, 200]
     salaries = [50000] * 30 + [50000, 100000000]
 
@@ -13,7 +12,6 @@ def test_profiler_detects_outliers():
 
     profile = profile_dataset(df)
 
-    # Artık hem age (INVALID_BOUNDS) hem de salary (STATISTICAL_OUTLIER) yakalanmalı
     assert len(profile["critical_issues"]) >= 2
 
 
@@ -84,14 +82,13 @@ def test_generic_pipeline_arbitrary_dataset(tmp_path):
     snapshot = graph.get_state(config)
     assert bool(snapshot.tasks and any(t.interrupts for t in snapshot.tasks))
 
-    # Resume graph
     resolutions = {"amount": "STATISTICAL_IMPUTE", "status": "SYNTHETIC_SYNTHESIS"}
     graph.invoke(Command(resume=resolutions), config=config)
 
     clean_df = pl.read_csv(out_file)
     assert clean_df["amount"].null_count() == 0
     assert clean_df["amount"].max() < 50000.0
-    assert clean_df.height > 60  # minority class synthesized
+    assert clean_df.height > 60
 
 
 def test_manual_input_strategy():
@@ -119,9 +116,7 @@ def test_manual_input_strategy():
 
     clean_df, logs = apply_human_resolutions(df, resolutions, schema)
 
-    # Score anomalies (None and 9999) should be replaced with 75
     assert clean_df["score"].to_list() == [50, 55, 60, 75, 75]
-    # Category null should be replaced with 'DefaultCat'
     assert clean_df["category"].to_list() == ["A", "B", "DefaultCat", "A", "B"]
     assert any("override value '75'" in log for log in logs)
     assert any("override value 'DefaultCat'" in log for log in logs)
@@ -157,9 +152,7 @@ def test_seed_reproducibility():
     set_seed(999)
     syn3, _ = synthesize_minority_class(df, "label", target_ratio=0.3, schema=schema)
 
-    # Identical seed -> identical results
     assert syn1["score"].to_list() == syn2["score"].to_list()
-    # Different seed -> differing values
     assert syn1["score"].to_list() != syn3["score"].to_list()
 
 
@@ -171,20 +164,16 @@ def test_input_validation(tmp_path):
 
     from refine.cli import _validate_input_file
 
-    # Non-existent file
     with pytest.raises(typer.Exit):
         _validate_input_file(Path(tmp_path / "non_existent.csv"))
 
-    # Empty file
     empty_file = Path(tmp_path / "empty.csv")
     empty_file.touch()
     with pytest.raises(typer.Exit):
         _validate_input_file(empty_file)
 
-    # Corrupt CSV
     corrupt_file = Path(tmp_path / "corrupt.csv")
     corrupt_file.write_text("col1,col2\n1\n2,3,4,5\n", encoding="utf-8")
-    # Some corrupt structures raise Exit or parser exception caught by _validate_input_file
     with pytest.raises(typer.Exit):
         _validate_input_file(corrupt_file)
 
@@ -214,7 +203,6 @@ def test_cli_reset_command(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
 
-    # Create dummy checkpoint files
     (tmp_path / ".checkpoints.db").write_text("mock sqlite")
     (tmp_path / ".checkpoints.db-wal").write_text("mock wal")
 
@@ -280,7 +268,6 @@ def test_post_remediation_and_telemetry(tmp_path):
     assert final_state["execution_duration_sec"] is not None
     assert final_state["execution_duration_sec"] >= 0
 
-    # Verification node checked residual issues
     trail = " ".join(final_state["audit_trail"])
     assert "Verification" in trail or "clean" in trail.lower()
 
@@ -294,14 +281,12 @@ def test_get_recommended_strategies():
         {"column": "churn", "type": "CLASS_IMBALANCE"},
     ]
 
-    # Heuristic fallback
     strat = get_recommended_strategies(issues)
     assert strat["age"] == "STATISTICAL_IMPUTE"
     assert strat["salary"] == "SYNTHETIC_SYNTHESIS"
     assert strat["churn"] == "SYNTHETIC_SYNTHESIS"
 
-    # Regex extraction from LLM advice
-    custom_advice = "• 'salary':\n  ➜ Önerilen Karar: STATISTICAL_IMPUTE\n  ➜ Seçimin Sonucu: test."
+    custom_advice = "• 'salary':\n  ➜ Recommended Decision: STATISTICAL_IMPUTE\n  ➜ Decision Impact: test."
     strat2 = get_recommended_strategies(issues, advice_text=custom_advice)
     assert strat2["salary"] == "STATISTICAL_IMPUTE"
 
@@ -316,10 +301,9 @@ def test_generate_expert_advice_unified_column_recommendation():
     ]
     advice = generate_expert_advice({}, issues)
 
-    # 'age' must appear exactly once, mentioning both issues with a single resolution
     assert advice.count("• 'age'") == 1
-    assert "Geçersiz Sınır Değerleri & Aşırı Uç Değerler" in advice
-    assert "Önerilen Karar: STATISTICAL_IMPUTE" in advice
+    assert "Invalid Bounds & Statistical Outliers" in advice
+    assert "Recommended Decision: STATISTICAL_IMPUTE" in advice
     assert advice.count("• 'churn'") == 1
 
 
@@ -361,12 +345,10 @@ def test_cli_run_dry_run_command(tmp_path):
     )
     df.write_csv(str(raw_file))
 
-    # User responds "y" to approve manifest in dry-run mode
     result = runner.invoke(app, ["run", "-f", str(raw_file), "-o", str(out_file), "--dry-run"], input="y\n")
     assert result.exit_code == 0
     assert "PLANNED EXECUTION MANIFEST" in result.output
     assert "DRY-RUN COMPLETE" in result.output
-    # Ensure no output was written to disk
     assert not out_file.exists()
 
 
@@ -388,8 +370,6 @@ def test_cli_run_user_rejects_manifest_manual_selection(tmp_path):
     )
     df.write_csv(str(raw_file))
 
-    # User responds "n" to manifest -> opted for manual governance
-    # Then for each anomalous column (age, target), sends strategy choice (e.g. 2, 3)
     user_inputs = "n\n2\n3\n"
     result = runner.invoke(
         app,
@@ -424,11 +404,9 @@ def test_drop_strategy_removes_column_not_rows():
 
     clean_df, logs = apply_human_resolutions(df, {"age": "DROP"}, schema)
 
-    # Column 'age' must be removed
     assert "age" not in clean_df.columns
     assert "id" in clean_df.columns
     assert "salary" in clean_df.columns
-    # Row count must remain 10 (no rows pruned)
     assert clean_df.height == 10
     assert any("removed feature column" in log for log in logs)
 
@@ -436,7 +414,6 @@ def test_drop_strategy_removes_column_not_rows():
 def test_render_streaming_panel():
     from refine.profiler.reporters import render_streaming_panel, stream_line
 
-    # Test non-interactive streaming (stream=False and stream=True in non-terminal env)
     render_streaming_panel("Test Panel", "Header", "Body word1 word2", stream=False)
     render_streaming_panel("Test Panel 2", "Header 2", "Body word1 word2", stream=True)
     stream_line("  [bold green]✓[/bold green] [dim][TOOL: TEST][/dim] Sample status line", stream=False)
@@ -474,7 +451,6 @@ def test_cli_default_interactive_refine(tmp_path):
     df = pl.DataFrame({"id": [1, 2, 3], "val": [10, 20, 30]})
     df.write_csv(str(raw_file))
 
-    # Passing the file path to interactive prompt
     result = runner.invoke(app, [], input=f"{raw_file}\ny\n")
     assert "refine-ai" in result.output
-    assert "Lütfen işlenecek CSV dosyasının yolunu girin" in result.output
+    assert "Please enter the path to the CSV dataset" in result.output

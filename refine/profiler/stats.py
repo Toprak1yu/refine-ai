@@ -5,7 +5,6 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-# Default thresholds (used when no schema overrides are provided)
 NULL_RATIO_THRESHOLD = 0.20
 ZSCORE_THRESHOLD = 3.0
 CLASS_IMBALANCE_MIN = 0.20
@@ -28,7 +27,6 @@ def profile_dataset(
         "critical_issues": [],
     }
 
-    # Extract schema info if available
     schema_columns = (schema or {}).get("columns", {})
     target_column = (schema or {}).get("target_column")
 
@@ -46,13 +44,11 @@ def profile_dataset(
             "anomalies": [],
         }
 
-        # Skip id / ignore columns from anomaly checks
         col_role = col_schema.get("role", "feature")
         if col_role in ("id", "ignore"):
             profile["columns"][col] = col_summary
             continue
 
-        # ── 1. High Null Ratio Trigger (>= 20%) ──────────────────
         if null_ratio >= NULL_RATIO_THRESHOLD:
             col_summary["anomalies"].append(f"Nulls ({null_ratio * 100:.1f}%)")
             profile["critical_issues"].append(
@@ -67,11 +63,9 @@ def profile_dataset(
                 }
             )
 
-        # ── 2. Numerical Checks ──────────────────────────────────
         if col_type in ("Int32", "Int64", "Float32", "Float64"):
             non_nulls = df[col].drop_nulls().to_numpy()
             if len(non_nulls) > 0:
-                # 2a. Domain bounds check (from schema or skip)
                 bounds = col_schema.get("valid_bounds")
                 if bounds and len(bounds) == 2:
                     low, high = bounds
@@ -92,12 +86,10 @@ def profile_dataset(
                             }
                         )
 
-                # 2b. Binary vs Continuous Outlier & Imbalance Checks
                 unique_vals = set(non_nulls.tolist())
                 is_binary = col_schema.get("semantic_type") == "binary" or unique_vals.issubset({0, 1})
 
                 if is_binary and len(unique_vals) == 2:
-                    # Generic class imbalance check for binary features
                     val_counts = df[col].drop_nulls().value_counts().sort("count")
                     min_count = val_counts["count"][0]
                     min_val = val_counts[col][0]
@@ -145,14 +137,12 @@ def profile_dataset(
                                 }
                             )
 
-        # ── 3. Categorical unique value tracking ─────────────────
         if col_type == "String":
             unique_vals = df[col].drop_nulls().unique().to_list()
             col_summary["unique_values"] = unique_vals
 
         profile["columns"][col] = col_summary
 
-    # ── 4. Class imbalance check on target column (if string or not yet caught) ──
     if target_column and target_column in df.columns:
         _check_class_imbalance(df, target_column, profile)
 
