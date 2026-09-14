@@ -275,7 +275,9 @@ def run(
                 console.print("\n[bold green]✓ AI-recommended execution manifest approved.[/bold green]")
                 human_decisions = interrupt_info.get("recommended_strategies", {})
             else:
-                console.print("\n[bold yellow]ℹ Operator opted for manual column-by-column governance.[/bold yellow]\n")
+                console.print(
+                    "\n[bold yellow]ℹ  Operator opted for manual column-by-column governance.[/bold yellow]\n"
+                )
                 human_decisions = render_interrupt_ui(interrupt_info, show_advice=False, stream=stream)
 
             if dry_run:

@@ -1,19 +1,18 @@
-# Ruff configuration for refine-ai
 target-version = "py311"
 line-length = 120
 
 [lint]
 select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # Pyflakes
-    "I",    # isort
-    "UP",   # pyupgrade
-    "B",    # flake8-bugbear
+    "E",
+    "W",
+    "F",
+    "I",
+    "UP",
+    "B",
 ]
 ignore = [
-    "E501",  # Line too long (handled by formatter)
-    "B008",  # Do not perform function call in argument defaults (Typer uses typer.Option())
+    "E501",
+    "B008",
 ]
 
 [format]
