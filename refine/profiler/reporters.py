@@ -46,13 +46,11 @@ def render_profile_table(profile: dict[str, Any], stream: bool = True) -> None:
     table.add_column("Feature", style="cyan", no_wrap=True)
     table.add_column("Data Type", style="magenta")
     table.add_column("Missing (%)", style="yellow")
-    table.add_column("Outliers", style="red")
     table.add_column("Status / Anomalies", style="white")
 
     rows = []
     for col_name, stats in profile["columns"].items():
         null_str = f"{stats['null_count']} ({stats['null_ratio'] * 100:.1f}%)"
-        outlier_str = str(stats.get("outliers_count", 0))
 
         anomalies = stats.get("anomalies", [])
         if anomalies:
@@ -60,7 +58,7 @@ def render_profile_table(profile: dict[str, Any], stream: bool = True) -> None:
         else:
             status_str = "[bold green]✓ Healthy[/bold green]"
 
-        rows.append((col_name, stats["type"], null_str, outlier_str, status_str))
+        rows.append((col_name, stats["type"], null_str, status_str))
 
     if console.is_terminal and stream:
         with Live(table, console=console, refresh_per_second=25):

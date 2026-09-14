@@ -205,7 +205,7 @@ def run(
     }
 
     try:
-        console.print("[bold cyan]Executing pipeline graph...[/bold cyan]")
+        console.print("[bold cyan]Executing pipeline graph...[/bold cyan]\n")
         for chunk in graph.stream(initial_state, config=config, stream_mode="updates"):
             for node_name in chunk:
                 if node_name == "schema_inference":
