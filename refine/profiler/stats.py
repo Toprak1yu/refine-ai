@@ -49,19 +49,20 @@ def profile_dataset(
             profile["columns"][col] = col_summary
             continue
 
-        if null_ratio >= NULL_RATIO_THRESHOLD:
-            col_summary["anomalies"].append(f"Nulls ({null_ratio * 100:.1f}%)")
-            profile["critical_issues"].append(
-                {
-                    "column": col,
-                    "type": "HIGH_NULL_RATIO",
-                    "ratio": null_ratio,
-                    "message": (
-                        f"Column '{col}' has a missingness ratio of "
-                        f"{null_ratio * 100:.1f}% (Threshold: {NULL_RATIO_THRESHOLD * 100:.0f}%)."
-                    ),
-                }
-            )
+        if null_count > 0:
+            col_summary["anomalies"].append(f"{null_count} Nulls ({null_ratio * 100:.1f}%)")
+            if null_ratio >= NULL_RATIO_THRESHOLD:
+                profile["critical_issues"].append(
+                    {
+                        "column": col,
+                        "type": "HIGH_NULL_RATIO",
+                        "ratio": null_ratio,
+                        "message": (
+                            f"Column '{col}' has a missingness ratio of "
+                            f"{null_ratio * 100:.1f}% (Threshold: {NULL_RATIO_THRESHOLD * 100:.0f}%)."
+                        ),
+                    }
+                )
 
         if col_type in ("Int32", "Int64", "Float32", "Float64"):
             non_nulls = df[col].drop_nulls().to_numpy()

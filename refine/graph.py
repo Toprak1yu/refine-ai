@@ -89,6 +89,7 @@ def evaluate_anomalies_node(state: AgentState) -> dict[str, Any]:
         advice = generate_expert_advice(state["profile"], critical_issues)
         recommended = get_recommended_strategies(critical_issues, advice)
 
+        is_llm = advice.startswith("[Ollama:")
         human_decisions = interrupt(
             {
                 "instruction": "Critical anomalies require human governance before pipeline execution.",
@@ -96,6 +97,7 @@ def evaluate_anomalies_node(state: AgentState) -> dict[str, Any]:
                 "expert_advice": advice,
                 "recommended_strategies": recommended,
                 "available_strategies": ["DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS", "MANUAL_INPUT"],
+                "source": "llm" if is_llm else "rule_engine",
             }
         )
         return {"human_resolutions": human_decisions, "expert_advice": advice}

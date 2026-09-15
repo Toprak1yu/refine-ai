@@ -19,6 +19,7 @@ from refine.graph import build_pipeline_graph
 from refine.logger import setup_logger
 from refine.profiler.reporters import (
     build_execution_manifest,
+    render_completion_summary,
     render_execution_manifest,
     render_profile_table,
     render_streaming_panel,
@@ -50,13 +51,6 @@ def render_interrupt_ui(interrupt_payload: dict, show_advice: bool = True, strea
 
     issues = interrupt_payload.get("issues", [])
     strategies = interrupt_payload.get("available_strategies", [])
-    recommended = interrupt_payload.get("recommended_strategies", {})
-    strat_to_num = {
-        "DROP": "1",
-        "STATISTICAL_IMPUTE": "2",
-        "SYNTHETIC_SYNTHESIS": "3",
-        "MANUAL_INPUT": "4",
-    }
 
     table = Table(title="Anomalous Features Requiring Human Intervention")
     table.add_column("Target Feature", style="cyan", no_wrap=True)
@@ -72,22 +66,23 @@ def render_interrupt_ui(interrupt_payload: dict, show_advice: bool = True, strea
         for issue in issues:
             table.add_row(issue["column"], issue["type"], issue["message"])
         console.print(table)
-    console.print(f"\n[bold]Available Remediation Strategies:[/bold] [green]{', '.join(strategies)}[/green]\n")
+    console.print(f"\n[bold]Available Remediation Strategies:[/bold] [green]{', '.join(strategies)}[/green]")
 
     decisions: dict[str, str] = {}
     unique_columns = list(dict.fromkeys(issue["column"] for issue in issues))
+    total_cols = len(unique_columns)
 
-    for col in unique_columns:
-        default_strat = recommended.get(col, "STATISTICAL_IMPUTE")
-        default_num = strat_to_num.get(default_strat, "2")
-        prompt_text = (
-            f"Select strategy for feature '[bold cyan]{col}[/bold cyan]' "
-            f"([1] DROP, [2] STATISTICAL_IMPUTE, [3] SYNTHETIC_SYNTHESIS, [4] MANUAL_INPUT)"
+    for idx, col in enumerate(unique_columns, 1):
+        console.print()
+        console.print(f"  [bold cyan]Feature {idx}/{total_cols}:[/bold cyan] [bold white]{col}[/bold white]")
+        console.print(
+            "  [dim]Options: [1] DROP  [2] STATISTICAL_IMPUTE  [3] SYNTHETIC_SYNTHESIS  [4] MANUAL_INPUT[/dim]"
         )
+
         choice = Prompt.ask(
-            prompt_text,
+            "  [bold cyan]➜[/bold cyan] [bold]Select strategy[/bold]",
             choices=["1", "2", "3", "4", "DROP", "STATISTICAL_IMPUTE", "SYNTHETIC_SYNTHESIS", "MANUAL_INPUT"],
-            default=default_num,
+            show_choices=False,
         )
 
         mapping = {
@@ -104,20 +99,21 @@ def render_interrupt_ui(interrupt_payload: dict, show_advice: bool = True, strea
 
         if selected_strategy in strategies:
             if selected_strategy == "MANUAL_INPUT":
-                override_val = Prompt.ask(f" Enter manual override value for '[bold cyan]{col}[/bold cyan]'")
+                override_val = Prompt.ask(f"  [bold cyan]?[/bold cyan] Enter override value for '{col}'")
                 decisions[col] = f"MANUAL_INPUT:{override_val}"
                 console.print(
-                    f" -> Assigned [bold green]MANUAL_INPUT[/bold green] (value: '{override_val}') to '[bold cyan]{col}[/bold cyan]'"
+                    f"  [bold green]✓[/bold green] Assigned [bold green]MANUAL_INPUT[/bold green] (value: '{override_val}') to '{col}'"
                 )
             else:
                 decisions[col] = selected_strategy
                 console.print(
-                    f" -> Assigned [bold green]{selected_strategy}[/bold green] to '[bold cyan]{col}[/bold cyan]'"
+                    f"  [bold green]✓[/bold green] Assigned [bold green]{selected_strategy}[/bold green] to '{col}'"
                 )
         else:
-            console.print(f" -> [bold red]Invalid strategy:[/bold red] {choice}")
+            console.print(f"  [bold red]✗ Invalid strategy:[/bold red] {choice}")
             return {}
 
+    console.print()
     return decisions
 
 
@@ -146,10 +142,8 @@ def _validate_input_file(file_path: Path) -> None:
 
 @app.command()
 def run(
-    file: str = typer.Option("data/raw/dirty_customers.csv", "--file", "-f", help="Input raw CSV path"),
-    output: str = typer.Option(
-        "data/processed/clean_customers.csv", "--output", "-o", help="Processed target CSV path"
-    ),
+    file: str = typer.Option(..., "--file", "-f", help="Input raw CSV path"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Processed target CSV path"),
     thread_id: str = typer.Option("session_001", "--thread-id", "-t", help="Checkpoint session thread ID"),
     model: str = typer.Option(
         "qwen2.5-coder:14b", "--model", "-m", help="Ollama LLM model name for reasoning & inference"
@@ -163,6 +157,10 @@ def run(
     """Executes the pipeline graph, gracefully pausing on anomalies for human governance."""
     raw_path = Path(file)
     _validate_input_file(raw_path)
+
+    if output is None:
+        clean_name = f"clean_{raw_path.name}" if not raw_path.name.startswith("clean_") else raw_path.name
+        output = str(Path("data/processed") / clean_name)
 
     if model:
         os.environ["OLLAMA_MODEL"] = model
@@ -231,7 +229,7 @@ def run(
                         time.sleep(0.12)
                 elif node_name == "evaluate_anomalies":
                     stream_line(
-                        "  [bold green]✓[/bold green] [dim][TOOL: ADVISOR][/dim] AI advisor synthesized remediation strategies.",
+                        "  [bold green]✓[/bold green] [dim][TOOL: ADVISOR][/dim] Evaluated data hygiene & operational rules.",
                         stream=stream,
                     )
                     if console.is_terminal and stream:
@@ -243,19 +241,29 @@ def run(
         if profile_data:
             console.print()
             render_profile_table(profile_data, stream=stream)
+            console.print()
 
         if state_snapshot.tasks and any(task.interrupts for task in state_snapshot.tasks):
             interrupt_info = state_snapshot.tasks[0].interrupts[0].value
             expert_advice = interrupt_info.get("expert_advice")
+            is_ai = bool(
+                interrupt_info.get("source") == "llm" or (expert_advice and expert_advice.startswith("[Ollama:"))
+            )
 
             if expert_advice:
+                header_text = (
+                    "[bold cyan]🧠 Senior Data Architect Reasoning (via RULES.md & Ollama LLM):[/bold cyan]"
+                    if is_ai
+                    else "[bold cyan]📋 Deterministic Rule-Engine Reasoning (via RULES.md Fallback):[/bold cyan]"
+                )
                 render_streaming_panel(
                     title="Agent Guidance",
-                    header_text="[bold cyan]🧠 Senior Data Architect Reasoning (via RULES.md):[/bold cyan]",
+                    header_text=header_text,
                     body_text=expert_advice,
                     border_style="cyan",
                     stream=stream,
                 )
+                console.print()
 
             manifest = build_execution_manifest(
                 raw_path=str(raw_path),
@@ -268,11 +276,19 @@ def run(
                 profile=profile_data,
             )
             render_execution_manifest(manifest, stream=stream)
+            console.print()
 
-            approve = Confirm.ask("\n[bold]Do you approve executing these file operations?[/bold]", default=True)
+            approve = Confirm.ask(
+                "  [bold cyan]?[/bold cyan] [bold]Do you approve executing these file operations?[/bold]"
+            )
 
             if approve:
-                console.print("\n[bold green]✓ AI-recommended execution manifest approved.[/bold green]")
+                approval_msg = (
+                    "✓ AI-recommended execution manifest approved."
+                    if is_ai
+                    else "✓ Rule-engine recommended execution manifest approved."
+                )
+                console.print(f"\n[bold green]{approval_msg}[/bold green]")
                 human_decisions = interrupt_info.get("recommended_strategies", {})
             else:
                 console.print(
@@ -306,6 +322,7 @@ def run(
                         )
                         if console.is_terminal and stream:
                             time.sleep(0.12)
+            console.print()
         else:
             if dry_run:
                 manifest = build_execution_manifest(
@@ -328,15 +345,12 @@ def run(
                 raise typer.Exit(code=0) from None
 
         final_state = graph.get_state(config).values
-        console.print(Panel.fit("[bold green]✓ PIPELINE EXECUTION COMPLETED[/bold green]", border_style="green"))
-
-        console.print("\n[bold cyan]Audit Log Trail:[/bold cyan]")
-        for entry in final_state.get("audit_trail", []):
-            stream_line(f" [dim]•[/dim] {entry}", stream=stream, char_delay=0.010)
-            if console.is_terminal and stream:
-                time.sleep(0.06)
-
-        console.print(f"\n[bold]Output Dataset:[/bold] [green]{final_state.get('processed_file_path')}[/green]\n")
+        render_completion_summary(
+            processed_path=str(final_state.get("processed_file_path") or ""),
+            audit_trail=final_state.get("audit_trail", []),
+            duration_sec=final_state.get("execution_duration_sec"),
+            stream=stream,
+        )
 
     except typer.Exit:
         raise
@@ -463,32 +477,30 @@ def main(
 ):
     """refine-ai: Autonomous Data Pipeline & Synthesis Agent with HITL Governance."""
     if ctx.invoked_subcommand is None:
+        console.print()
         console.print(
             Panel.fit(
-                f"[bold cyan]🚀 refine-ai v{__version__}[/bold cyan]\n"
+                f"[bold cyan]🚀 refine-ai[/bold cyan] [dim]v{__version__}[/dim]\n"
                 "[dim]Autonomous Data Pipeline & Synthesis Agent with HITL Governance[/dim]",
                 border_style="cyan",
+                padding=(1, 4),
             )
         )
-        default_file = "data/raw/dirty_customers.csv"
-        prompt_default = default_file if Path(default_file).exists() else None
-
-        if prompt_default:
-            selected_file = Prompt.ask(
-                "[bold]Please enter the path to the CSV dataset[/bold]",
-                default=prompt_default,
-            )
-        else:
-            selected_file = Prompt.ask("[bold]Please enter the path to the CSV dataset[/bold]")
+        console.print()
+        selected_file = Prompt.ask("  [bold cyan]➜[/bold cyan] [bold]Please enter the path to the CSV dataset[/bold]")
 
         if not selected_file or not selected_file.strip():
-            console.print("[bold red]No file path specified. Exiting.[/bold red]")
-            raise typer.Exit(code=1)
+            console.print("\n  [bold yellow]ℹ  No file path specified. Exiting.[/bold yellow]\n")
+            raise typer.Exit(code=0)
 
+        console.print()
+
+        raw_path = Path(selected_file.strip())
+        clean_name = f"clean_{raw_path.name}" if not raw_path.name.startswith("clean_") else raw_path.name
         ctx.invoke(
             run,
             file=selected_file.strip(),
-            output="data/processed/clean_customers.csv",
+            output=str(Path("data/processed") / clean_name),
             thread_id="session_001",
             model=os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b"),
             seed=42,

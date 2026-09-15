@@ -40,25 +40,24 @@ def stream_line(
 
 def render_profile_table(profile: dict[str, Any], stream: bool = True) -> None:
     """Renders dataset profile and detected anomalies in a structured CLI panel."""
-    console.print(Panel.fit("[bold blue]Dataset Profile & Anomaly Audit[/bold blue]", border_style="blue"))
-
-    table = Table(title=f"Total Records: {profile['total_rows']}")
+    table = Table(
+        title=f"[bold blue]Dataset Profile & Anomaly Audit[/bold blue]  [dim]•[/dim]  [bold]Total Records:[/bold] {profile['total_rows']}",
+        border_style="blue",
+        header_style="bold",
+    )
     table.add_column("Feature", style="cyan", no_wrap=True)
     table.add_column("Data Type", style="magenta")
-    table.add_column("Missing (%)", style="yellow")
     table.add_column("Status / Anomalies", style="white")
 
     rows = []
     for col_name, stats in profile["columns"].items():
-        null_str = f"{stats['null_count']} ({stats['null_ratio'] * 100:.1f}%)"
-
         anomalies = stats.get("anomalies", [])
         if anomalies:
             status_str = f"[bold red]⚠️ {', '.join(anomalies)}[/bold red]"
         else:
             status_str = "[bold green]✓ Healthy[/bold green]"
 
-        rows.append((col_name, stats["type"], null_str, status_str))
+        rows.append((col_name, stats["type"], status_str))
 
     if console.is_terminal and stream:
         with Live(table, console=console, refresh_per_second=25):
@@ -82,7 +81,7 @@ def render_streaming_panel(
     """Renders a panel with ChatGPT-style streaming text effect."""
     full_text = f"{header_text}\n\n{body_text}" if header_text else body_text
     if not console.is_terminal or not stream:
-        console.print(Panel(full_text, border_style=border_style, title=title))
+        console.print(Panel(full_text, border_style=border_style, title=title, padding=(1, 2)))
         return
 
     words = body_text.split(" ")
@@ -91,7 +90,7 @@ def render_streaming_panel(
         for i, w in enumerate(words):
             current += w if i == 0 else " " + w
             content = f"{header_text}\n\n{current}" if header_text else current
-            live.update(Panel(content, border_style=border_style, title=title))
+            live.update(Panel(content, border_style=border_style, title=title, padding=(1, 2)))
             time.sleep(word_delay)
 
 
@@ -230,6 +229,7 @@ def render_execution_manifest(manifest: dict[str, Any], stream: bool = True) -> 
                         "\n".join(accumulated),
                         title="[bold]📋 PLANNED EXECUTION MANIFEST[/bold]",
                         border_style="blue",
+                        padding=(1, 2),
                         expand=False,
                     )
                 )
@@ -241,6 +241,61 @@ def render_execution_manifest(manifest: dict[str, Any], stream: bool = True) -> 
                 panel_content,
                 title="[bold]📋 PLANNED EXECUTION MANIFEST[/bold]",
                 border_style="blue",
+                padding=(1, 2),
                 expand=False,
             )
         )
+
+
+def render_completion_summary(
+    processed_path: str,
+    audit_trail: list[str],
+    duration_sec: float | None = None,
+    stream: bool = True,
+) -> None:
+    """Renders a structured completion panel displaying generated artifacts and audit logs."""
+    report_path = (
+        str(Path(processed_path).with_name(f"{Path(processed_path).stem}_audit_report.md")) if processed_path else ""
+    )
+
+    lines: list[str] = ["[bold]Output Artifacts:[/bold]"]
+    if processed_path:
+        lines.append(f"  • [bold cyan]Clean Dataset:[/bold cyan]  [white]{processed_path}[/white]")
+    if report_path:
+        lines.append(f"  • [bold cyan]Audit Report:[/bold cyan]   [white]{report_path}[/white]")
+    if duration_sec is not None:
+        lines.append(f"  • [bold cyan]Duration:[/bold cyan]       [white]{duration_sec:.2f}s[/white]")
+
+    if audit_trail:
+        lines.append("")
+        lines.append("[bold]Audit Log Trail:[/bold]")
+        for entry in audit_trail:
+            lines.append(f"  [green]✓[/green] [white]{entry}[/white]")
+
+    panel = Panel(
+        "\n".join(lines),
+        title="[bold green]✓ PIPELINE EXECUTION COMPLETED[/bold green]",
+        border_style="green",
+        padding=(1, 3),
+        expand=False,
+    )
+
+    console.print()
+    if console.is_terminal and stream:
+        accumulated: list[str] = []
+        with Live(console=console, refresh_per_second=25) as live:
+            for line in lines:
+                accumulated.append(line)
+                live.update(
+                    Panel(
+                        "\n".join(accumulated),
+                        title="[bold green]✓ PIPELINE EXECUTION COMPLETED[/bold green]",
+                        border_style="green",
+                        padding=(1, 3),
+                        expand=False,
+                    )
+                )
+                time.sleep(0.04)
+    else:
+        console.print(panel)
+    console.print()

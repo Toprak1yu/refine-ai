@@ -291,9 +291,10 @@ def test_get_recommended_strategies():
     assert strat2["salary"] == "STATISTICAL_IMPUTE"
 
 
-def test_generate_expert_advice_unified_column_recommendation():
+def test_generate_expert_advice_unified_column_recommendation(monkeypatch):
     from refine.tools.advisor import generate_expert_advice
 
+    monkeypatch.setenv("OLLAMA_HOST", "http://localhost:1")
     issues = [
         {"column": "age", "type": "INVALID_BOUNDS", "count": 32},
         {"column": "age", "type": "STATISTICAL_OUTLIER", "outliers_count": 15},
@@ -454,3 +455,31 @@ def test_cli_default_interactive_refine(tmp_path):
     result = runner.invoke(app, [], input=f"{raw_file}\ny\n")
     assert "refine-ai" in result.output
     assert "Please enter the path to the CSV dataset" in result.output
+
+
+def test_cli_manifest_approval_source_attribution(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    monkeypatch.setenv("OLLAMA_HOST", "http://localhost:1")
+    runner = CliRunner()
+    raw_file = tmp_path / "raw.csv"
+    out_file = tmp_path / "clean.csv"
+
+    df = pl.DataFrame(
+        {
+            "id": list(range(20)),
+            "score": [50] * 18 + [-999, 999],
+        }
+    )
+    df.write_csv(str(raw_file))
+
+    result = runner.invoke(
+        app,
+        ["run", "-f", str(raw_file), "-o", str(out_file), "-t", "test_source_sess"],
+        input="y\n",
+    )
+    assert result.exit_code == 0
+    assert "Rule-engine recommended execution manifest approved" in result.output
+    assert "AI-recommended" not in result.output
