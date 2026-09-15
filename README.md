@@ -1,8 +1,9 @@
-# refine-ai `v0.3.0`
+# refine-ai `v0.3.1`
 
-[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/Toprak1yu/refine-ai)
+[![PyPI](https://img.shields.io/pypi/v/refine-ai.svg?color=blue)](https://pypi.org/project/refine-ai/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/Toprak1yu/refine-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Toprak1yu/refine-ai/actions/workflows/ci.yml)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
 > **Autonomous Data Pipeline & Synthetic Data Agent with Human-in-the-Loop (HITL) Governance.**
@@ -76,7 +77,7 @@ refine-ai/
 │   ├── raw/                     # Untouched source datasets
 │   └── processed/               # Cleaned datasets and markdown audit reports
 ├── refine/
-│   ├── __init__.py              # Package version (0.3.0)
+│   ├── __init__.py              # Package version (0.3.1)
 │   ├── cli.py                   # Typer & Rich interactive CLI interface
 │   ├── graph.py                 # LangGraph StateGraph & interrupt workflow
 │   ├── logger.py                # Structured console logging utilities
@@ -101,14 +102,25 @@ refine-ai/
 
 ### 1. Installation
 
-Clone the repository and install in editable mode:
+Install directly from PyPI via `pip` or `pipx`:
+
+```bash
+pip install refine-ai
+```
+
+Or run directly without installing in your system Python:
+
+```bash
+pipx install refine-ai
+```
+
+*(For local development from source)*:
 
 ```bash
 git clone https://github.com/Toprak1yu/refine-ai.git
 cd refine-ai
-
 python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
