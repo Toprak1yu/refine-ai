@@ -7,5 +7,7 @@ data/processed/
 *.egg-info/
 .vscode/
 *.log
+dist/
+build/
 data/raw/*
 !data/raw/dirty_customers.csv

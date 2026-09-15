@@ -4,13 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "refine-ai"
-version = "0.3.0"
+version = "0.3.1"
 description = "Autonomous Data Pipeline & Synthesis Agent with Human-in-the-Loop Governance"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
     { name = "Aziz Toprak Yilmaz" }
 ]
+license = "MIT"
+keywords = [
+    "data-engineering",
+    "data-quality",
+    "langgraph",
+    "synthetic-data",
+    "cli",
+    "human-in-the-loop",
+    "polars",
+]
+
 dependencies = [
     "langgraph>=0.2.0",
     "langgraph-checkpoint-sqlite>=2.0.0",
@@ -24,6 +35,11 @@ dependencies = [
     "pydantic>=2.7.0",
     "langchain-ollama>=0.1.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Toprak1yu/refine-ai"
+Repository = "https://github.com/Toprak1yu/refine-ai"
+Issues = "https://github.com/Toprak1yu/refine-ai/issues"
 
 [project.optional-dependencies]
 dev = [
