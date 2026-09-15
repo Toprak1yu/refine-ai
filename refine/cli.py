@@ -27,6 +27,7 @@ from refine.profiler.reporters import (
 )
 from refine.profiler.stats import profile_dataset
 from refine.schema_inference import infer_schema
+from refine.tools.advisor import get_installed_ollama_models, is_ollama_online
 
 app = typer.Typer(
     name="refine",
@@ -117,6 +118,46 @@ def render_interrupt_ui(interrupt_payload: dict, show_advice: bool = True, strea
     return decisions
 
 
+def prompt_model_selection(installed_models: list[str]) -> str | None:
+    """Prompts operator to select an Ollama model from installed models."""
+    if not installed_models:
+        return None
+
+    console.print("  [bold cyan]Available Ollama Models:[/bold cyan]")
+    for idx, m in enumerate(installed_models, 1):
+        console.print(f"    [bold cyan][{idx}][/bold cyan] {m}")
+    skip_idx = len(installed_models) + 1
+    console.print(f"    [bold cyan][{skip_idx}][/bold cyan] Skip (Use Local Rule-Engine)\n")
+
+    valid_choices = [str(i) for i in range(1, skip_idx + 1)] + installed_models + ["y", "Y"]
+
+    choice = Prompt.ask(
+        "  [bold cyan]➜[/bold cyan] [bold]Select model[/bold]",
+        choices=valid_choices,
+        default="1",
+        show_choices=False,
+        show_default=False,
+    )
+
+    if choice in ("y", "Y", "1"):
+        selected = installed_models[0]
+    elif choice == str(skip_idx) or choice.lower() == "skip":
+        selected = None
+    elif choice.isdigit() and 1 <= int(choice) <= len(installed_models):
+        selected = installed_models[int(choice) - 1]
+    elif choice in installed_models:
+        selected = choice
+    else:
+        selected = installed_models[0]
+
+    if selected:
+        console.print(f"  [bold green]✓[/bold green] Selected model: [bold green]{selected}[/bold green]\n")
+    else:
+        console.print("  [bold yellow]ℹ[/bold yellow] Operating in deterministic Rule-Engine mode.\n")
+
+    return selected
+
+
 def _validate_input_file(file_path: Path) -> None:
     """Validates that input raw data file exists, is readable, and non-empty."""
     if not file_path.exists():
@@ -145,8 +186,8 @@ def run(
     file: str = typer.Option(..., "--file", "-f", help="Input raw CSV path"),
     output: str | None = typer.Option(None, "--output", "-o", help="Processed target CSV path"),
     thread_id: str = typer.Option("session_001", "--thread-id", "-t", help="Checkpoint session thread ID"),
-    model: str = typer.Option(
-        "qwen2.5-coder:14b", "--model", "-m", help="Ollama LLM model name for reasoning & inference"
+    model: str | None = typer.Option(
+        None, "--model", "-m", help="Ollama LLM model name (or 'select' to choose from installed models)"
     ),
     seed: int = typer.Option(42, "--seed", "-s", help="Random seed for deterministic reproducibility"),
     dry_run: bool = typer.Option(
@@ -161,6 +202,22 @@ def run(
     if output is None:
         clean_name = f"clean_{raw_path.name}" if not raw_path.name.startswith("clean_") else raw_path.name
         output = str(Path("data/processed") / clean_name)
+
+    ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    if model == "select":
+        installed = get_installed_ollama_models(ollama_base_url)
+        model = prompt_model_selection(installed)
+        if model is None:
+            os.environ["OLLAMA_DISABLED"] = "1"
+    elif model is None:
+        if os.getenv("OLLAMA_MODEL"):
+            model = os.getenv("OLLAMA_MODEL")
+        elif is_ollama_online(ollama_base_url):
+            installed = get_installed_ollama_models(ollama_base_url)
+            if "qwen2.5-coder:14b" in installed:
+                model = "qwen2.5-coder:14b"
+            elif installed:
+                model = installed[0]
 
     if model:
         os.environ["OLLAMA_MODEL"] = model
@@ -177,10 +234,19 @@ def run(
     graph = build_pipeline_graph().compile(checkpointer=checkpointer)
     config = {"configurable": {"thread_id": thread_id}}
 
-    console.print(
-        f"\n[bold green]► Initializing refine-ai pipeline:[/bold green] [cyan]{file}[/cyan] "
-        f"(Session: [yellow]{thread_id}[/yellow], Seed: [yellow]{seed}[/yellow])\n"
-    )
+    console.print(f"\n[bold green]► Initializing refine-ai pipeline:[/bold green] [cyan]{file}[/cyan]\n")
+    ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    active_model = os.getenv("OLLAMA_MODEL") or model or "qwen2.5-coder:14b"
+    if is_ollama_online(ollama_base_url):
+        console.print(
+            f"  [bold green]●[/bold green] [bold]AI Engine:[/bold] [green]Connected[/green] "
+            f"[dim](Ollama • {active_model})[/dim]\n"
+        )
+    else:
+        console.print(
+            "  [bold yellow]○[/bold yellow] [bold]AI Engine:[/bold] [yellow]Offline[/yellow] "
+            "→ Using Local Rule-Engine [dim](Tip: run 'ollama serve' for LLM reasoning)[/dim]\n"
+        )
 
     initial_state = {
         "raw_file_path": str(raw_path),
@@ -497,12 +563,22 @@ def main(
 
         raw_path = Path(selected_file.strip())
         clean_name = f"clean_{raw_path.name}" if not raw_path.name.startswith("clean_") else raw_path.name
+
+        ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        selected_model = os.environ.get("OLLAMA_MODEL")
+        if is_ollama_online(ollama_base_url):
+            installed_models = get_installed_ollama_models(ollama_base_url)
+            if installed_models:
+                selected_model = prompt_model_selection(installed_models)
+                if selected_model is None:
+                    os.environ["OLLAMA_DISABLED"] = "1"
+
         ctx.invoke(
             run,
             file=selected_file.strip(),
             output=str(Path("data/processed") / clean_name),
             thread_id="session_001",
-            model=os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:14b"),
+            model=selected_model,
             seed=42,
             dry_run=False,
             stream=True,

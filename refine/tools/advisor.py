@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import urllib.request
@@ -5,14 +6,34 @@ from pathlib import Path
 from typing import Any
 
 
-def _is_ollama_online(base_url: str) -> bool:
-    """Fast check (timeout 0.3s) if local Ollama daemon is reachable."""
+def is_ollama_online(base_url: str | None = None) -> bool:
+    """Fast check (timeout 0.3s) if local Ollama daemon is reachable and enabled."""
+    if os.getenv("OLLAMA_DISABLED") == "1":
+        return False
+    url = (base_url or os.getenv("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
     try:
-        req = urllib.request.Request(f"{base_url.rstrip('/')}/api/tags", method="GET")
+        req = urllib.request.Request(f"{url}/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=0.3):
             return True
     except Exception:
         return False
+
+
+_is_ollama_online = is_ollama_online
+
+
+def get_installed_ollama_models(base_url: str | None = None) -> list[str]:
+    """Queries the local Ollama daemon for installed model tags."""
+    if os.getenv("OLLAMA_DISABLED") == "1":
+        return []
+    url = (base_url or os.getenv("OLLAMA_HOST", "http://localhost:11434")).rstrip("/")
+    try:
+        req = urllib.request.Request(f"{url}/api/tags", method="GET")
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            data = json.loads(resp.read().decode())
+            return [m["name"] for m in data.get("models", []) if "name" in m]
+    except Exception:
+        return []
 
 
 def _format_col_issues(issues: list[dict[str, Any]]) -> str:

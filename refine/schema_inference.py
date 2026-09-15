@@ -105,7 +105,9 @@ Rules:
 
 
 def _is_ollama_online(base_url: str) -> bool:
-    """Fast check (timeout 0.3s) if local Ollama daemon is reachable."""
+    """Fast check (timeout 0.3s) if local Ollama daemon is reachable and enabled."""
+    if os.getenv("OLLAMA_DISABLED") == "1":
+        return False
     try:
         req = urllib.request.Request(f"{base_url.rstrip('/')}/api/tags", method="GET")
         with urllib.request.urlopen(req, timeout=0.3):

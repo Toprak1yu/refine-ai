@@ -483,3 +483,33 @@ def test_cli_manifest_approval_source_attribution(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "Rule-engine recommended execution manifest approved" in result.output
     assert "AI-recommended" not in result.output
+
+
+def test_prompt_model_selection():
+    import io
+    import sys
+
+    from refine.cli import prompt_model_selection
+
+    orig_stdin = sys.stdin
+    try:
+        sys.stdin = io.StringIO("2\n")
+        selected = prompt_model_selection(["model_a", "model_b"])
+        assert selected == "model_b"
+
+        sys.stdin = io.StringIO("3\n")
+        selected_skip = prompt_model_selection(["model_a", "model_b"])
+        assert selected_skip is None
+    finally:
+        sys.stdin = orig_stdin
+
+
+def test_get_installed_ollama_models_offline(monkeypatch):
+    from refine.tools.advisor import get_installed_ollama_models
+
+    monkeypatch.setenv("OLLAMA_HOST", "http://localhost:1")
+    models = get_installed_ollama_models()
+    assert models == []
+
+    monkeypatch.setenv("OLLAMA_DISABLED", "1")
+    assert get_installed_ollama_models() == []
