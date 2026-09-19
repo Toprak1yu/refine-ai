@@ -19,6 +19,10 @@ from refine.tools.transformer import apply_human_resolutions
 logger = get_logger()
 
 
+def _records_to_df(records: list[dict[str, Any]]) -> pl.DataFrame:
+    return pl.DataFrame(records, infer_schema_length=None)
+
+
 def schema_inference_node(state: AgentState) -> dict[str, Any]:
     """Uses AI (LLM) or heuristic fallback to infer dataset schema from raw records."""
     start_time = state.get("start_time") or datetime.now().isoformat()
@@ -28,7 +32,7 @@ def schema_inference_node(state: AgentState) -> dict[str, Any]:
     logger.info(f"Starting schema inference (session={state.get('session_id')}, seed={seed})")
 
     df = (
-        pl.DataFrame(state["records"])
+        _records_to_df(state["records"])
         if state.get("records")
         else pl.read_csv(state["raw_file_path"], infer_schema_length=None, ignore_errors=True)
     )
@@ -57,7 +61,7 @@ def schema_inference_node(state: AgentState) -> dict[str, Any]:
 
 def profile_node(state: AgentState) -> dict[str, Any]:
     """Computes statistical profile using the inferred schema to detect anomalies and class imbalance."""
-    df = pl.DataFrame(state["records"])
+    df = _records_to_df(state["records"])
     schema_dict = state.get("inferred_schema")
     profile = profile_dataset(df, schema_dict)
 
@@ -74,7 +78,7 @@ def profile_node(state: AgentState) -> dict[str, Any]:
 
 def deterministic_clean_node(state: AgentState) -> dict[str, Any]:
     """Executes safe, invariant data sanitation without human intervention."""
-    df = pl.DataFrame(state["records"])
+    df = _records_to_df(state["records"])
     schema = _load_schema(state)
     df, logs = run_deterministic_clean(df, schema)
 
@@ -111,7 +115,7 @@ def evaluate_anomalies_node(state: AgentState) -> dict[str, Any]:
 
 def apply_resolutions_node(state: AgentState) -> dict[str, Any]:
     """Applies human choices to fix anomalies, then verifies data cleanliness."""
-    df = pl.DataFrame(state["records"])
+    df = _records_to_df(state["records"])
     schema = _load_schema(state)
     resolutions = state.get("human_resolutions", {})
 
@@ -134,7 +138,7 @@ def apply_resolutions_node(state: AgentState) -> dict[str, Any]:
 
 def export_node(state: AgentState) -> dict[str, Any]:
     """Exports cleaned records and generates an executive Markdown audit report with full telemetry."""
-    df = pl.DataFrame(state["records"])
+    df = _records_to_df(state["records"])
     output_path = state.get("processed_file_path") or "data/processed/clean_output.csv"
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)

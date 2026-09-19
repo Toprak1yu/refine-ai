@@ -64,7 +64,7 @@ def synthesize_minority_class(
 
     synthetic_rows = _generate_synthetic_rows(df, needed_rows, target_col, minority_val, schema)
 
-    syn_df = pl.DataFrame(synthetic_rows)
+    syn_df = pl.DataFrame(synthetic_rows, infer_schema_length=None)
 
     cast_exprs = []
     for col in syn_df.columns:
