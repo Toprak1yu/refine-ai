@@ -172,9 +172,7 @@ _TARGET_PATTERNS = re.compile(
 )
 
 
-def _is_nominal_numeric(
-    col_name: str, col_type: str, uniqueness_ratio: float, unique_count: int
-) -> bool:
+def _is_nominal_numeric(col_name: str, col_type: str, uniqueness_ratio: float, unique_count: int) -> bool:
     """Detects numerical columns that are identifiers or nominal codes rather than
     analytical features where statistical imputation would be meaningful.
 

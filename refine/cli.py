@@ -153,7 +153,7 @@ def prompt_model_selection(installed_models: list[str]) -> str | None:
     if selected:
         console.print(f"  [bold green]✓[/bold green] Selected model: [bold green]{selected}[/bold green]\n")
     else:
-        console.print("  [bold yellow]ℹ[/bold yellow] Operating in deterministic Rule-Engine mode.\n")
+        console.print("  [bold yellow]ℹ[/bold yellow]  Operating in deterministic Rule-Engine mode.\n")
 
     return selected
 

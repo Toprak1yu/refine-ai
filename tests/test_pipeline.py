@@ -561,4 +561,3 @@ def test_nominal_numeric_columns_ignored():
 
     assert schema.columns["age"].role == "feature"
     assert schema.columns["age"].semantic_type == "numerical"
-
