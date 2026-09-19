@@ -158,13 +158,43 @@ _ID_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 _IGNORE_PATTERNS = re.compile(
-    r"(?:name|description|comment|note|text|address|detail|summary)",
+    r"(?:name|description|comment|note|text|address|detail|summary"
+    r"|street|block|lot|parcel|ward|tract|precinct|district"
+    r"|zip(?:code)?|postal|(?:area.?code)"
+    r"|phone|tel(?:ephone)?|fax|mobile|cell"
+    r"|latitude|longitude|(?:^lat$)|(?:^lng$)|(?:^lon$)"
+    r"|(?:^ssn$)|(?:^ein$)|(?:^tin$))",
     re.IGNORECASE,
 )
 _TARGET_PATTERNS = re.compile(
     r"(?:target|label|class|churn|outcome|^y$|result|flag|status|converted|survived|default|fraud)",
     re.IGNORECASE,
 )
+
+
+def _is_nominal_numeric(
+    col_name: str, col_type: str, uniqueness_ratio: float, unique_count: int
+) -> bool:
+    """Detects numerical columns that are identifiers or nominal codes rather than
+    analytical features where statistical imputation would be meaningful.
+
+    Uses a two-pronged approach instead of exhaustive column name enumeration:
+      1. Column name pattern matching for common address, phone, and coordinate terms.
+      2. Statistical detection: integer columns with very high uniqueness (>90%) are
+         almost certainly identifiers (permit numbers, phone numbers, serial numbers, etc.)
+         regardless of their column name.
+
+    When the Ollama LLM path is available, it provides comprehensive semantic
+    understanding that supersedes these heuristics.
+    """
+    if _IGNORE_PATTERNS.search(col_name):
+        return True
+
+    is_integer = col_type in ("Int32", "Int64")
+    if is_integer and uniqueness_ratio > 0.9 and unique_count > 100:
+        return True
+
+    return False
 
 
 def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
@@ -215,6 +245,15 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
             continue
 
         if is_numerical:
+            if _is_nominal_numeric(col, col_type, uniqueness_ratio, unique_count):
+                ignore_columns.append(col)
+                columns[col] = ColumnSchema(
+                    role="ignore",
+                    semantic_type="numerical",
+                    description=f"Nominal/identifier numeric column ({unique_count} unique values)",
+                )
+                continue
+
             bounds = _estimate_bounds(df, col)
             columns[col] = ColumnSchema(
                 role="feature",

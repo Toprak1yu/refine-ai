@@ -529,3 +529,36 @@ def test_mixed_type_csv_parsing(tmp_path):
     df = pl.read_csv(mixed_file, infer_schema_length=None, ignore_errors=True)
     assert df.height == 151
     assert df["amount"].dtype == pl.Float64
+
+
+def test_nominal_numeric_columns_ignored():
+    from refine.schema_inference import _infer_schema_heuristic
+
+    df = pl.DataFrame(
+        {
+            "permit_id": [f"P_{i}" for i in range(200)],
+            "Street Number": list(range(100, 300)),
+            "Zipcode": [10001 + (i % 50) for i in range(200)],
+            "phone": list(range(5550000, 5550200)),
+            "amount": [float(100 + i) for i in range(200)],
+            "age": [25 + (i % 60) for i in range(200)],
+        }
+    )
+
+    schema = _infer_schema_heuristic(df)
+
+    assert "Street Number" in schema.ignore_columns
+    assert schema.columns["Street Number"].role == "ignore"
+
+    assert "Zipcode" in schema.ignore_columns
+    assert schema.columns["Zipcode"].role == "ignore"
+
+    assert "phone" in schema.ignore_columns
+    assert schema.columns["phone"].role == "ignore"
+
+    assert schema.columns["amount"].role == "feature"
+    assert schema.columns["amount"].semantic_type == "numerical"
+
+    assert schema.columns["age"].role == "feature"
+    assert schema.columns["age"].semantic_type == "numerical"
+
