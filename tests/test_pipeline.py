@@ -513,3 +513,19 @@ def test_get_installed_ollama_models_offline(monkeypatch):
 
     monkeypatch.setenv("OLLAMA_DISABLED", "1")
     assert get_installed_ollama_models() == []
+
+
+def test_mixed_type_csv_parsing(tmp_path):
+    from refine.cli import _validate_input_file
+
+    mixed_file = tmp_path / "mixed.csv"
+    lines = ["id,amount\n"]
+    for i in range(150):
+        lines.append(f"{i},100\n")
+    lines.append("151,1024.86\n")
+    mixed_file.write_text("".join(lines))
+
+    _validate_input_file(mixed_file)
+    df = pl.read_csv(mixed_file, infer_schema_length=None, ignore_errors=True)
+    assert df.height == 151
+    assert df["amount"].dtype == pl.Float64

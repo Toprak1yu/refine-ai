@@ -171,7 +171,7 @@ def _validate_input_file(file_path: Path) -> None:
         raise typer.Exit(code=1)
 
     try:
-        sample = pl.read_csv(file_path, n_rows=5)
+        sample = pl.read_csv(file_path, n_rows=5, infer_schema_length=None, ignore_errors=True)
         if sample.width == 0:
             console.print(f"\n[bold red]Error:[/bold red] Target file '{file_path}' contains no valid columns.\n")
             raise typer.Exit(code=1) from None
@@ -441,7 +441,7 @@ def profile(
     console.print(f"\n[bold blue]► Profiling dataset:[/bold blue] [cyan]{file}[/cyan]\n")
 
     try:
-        df = pl.read_csv(raw_path)
+        df = pl.read_csv(raw_path, infer_schema_length=None, ignore_errors=True)
         schema, method = infer_schema(df)
         prof = profile_dataset(df, schema.model_dump())
         render_profile_table(prof)

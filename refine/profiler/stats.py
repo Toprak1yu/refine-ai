@@ -87,8 +87,15 @@ def profile_dataset(
                             }
                         )
 
-                unique_vals = set(non_nulls.tolist())
-                is_binary = col_schema.get("semantic_type") == "binary" or unique_vals.issubset({0, 1})
+                n_unique = df[col].drop_nulls().n_unique()
+                is_binary = col_schema.get("semantic_type") == "binary"
+                unique_vals: set[Any] = set()
+                if not is_binary and n_unique <= 2:
+                    unique_vals = set(df[col].drop_nulls().unique().head(3).to_list())
+                    if unique_vals.issubset({0, 1}):
+                        is_binary = True
+                elif is_binary:
+                    unique_vals = set(df[col].drop_nulls().unique().head(3).to_list())
 
                 if is_binary and len(unique_vals) == 2:
                     val_counts = df[col].drop_nulls().value_counts().sort("count")

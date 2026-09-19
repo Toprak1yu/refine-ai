@@ -192,7 +192,9 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
             )
             continue
 
-        if is_string and (_IGNORE_PATTERNS.search(col) or (uniqueness_ratio > 0.7 and unique_count > 30)):
+        if is_string and (
+            _IGNORE_PATTERNS.search(col) or (uniqueness_ratio > 0.7 and unique_count > 30) or unique_count > 1000
+        ):
             ignore_columns.append(col)
             columns[col] = ColumnSchema(
                 role="ignore",
@@ -223,7 +225,8 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
             continue
 
         if is_string:
-            aliases = _detect_aliases_heuristic(non_null.unique().to_list())
+            sample_unique = non_null.unique().head(500).to_list() if unique_count > 500 else non_null.unique().to_list()
+            aliases = _detect_aliases_heuristic(sample_unique)
             columns[col] = ColumnSchema(
                 role="feature",
                 semantic_type="categorical",
@@ -301,27 +304,30 @@ def _detect_aliases_heuristic(values: list[str], col_name: str = "") -> dict[str
                 aliases[canonical] = alias_list
                 assigned.update(variants)
 
-    for val in values:
-        words = [w for w in re.split(r"[\s_\-]+", val.strip()) if w]
-        if len(words) > 1:
-            initials = "".join(w[0] for w in words).upper()
-            matching = [
-                v
-                for v in values
-                if v not in assigned
-                and (
-                    v.strip().upper() == initials
-                    or (
-                        len(initials) >= 2
-                        and v.strip().upper().startswith(initials)
-                        and len(v.strip()) <= len(initials) + 1
+    if len(values) <= 500:
+        for val in values:
+            if val in assigned:
+                continue
+            words = [w for w in re.split(r"[\s_\-]+", val.strip()) if w]
+            if len(words) > 1:
+                initials = "".join(w[0] for w in words).upper()
+                matching = [
+                    v
+                    for v in values
+                    if v not in assigned
+                    and (
+                        v.strip().upper() == initials
+                        or (
+                            len(initials) >= 2
+                            and v.strip().upper().startswith(initials)
+                            and len(v.strip()) <= len(initials) + 1
+                        )
+                        or (v.strip().upper().startswith(f"{initials}_"))
                     )
-                    or (v.strip().upper().startswith(f"{initials}_"))
-                )
-            ]
-            if matching:
-                aliases.setdefault(val, []).extend(matching)
-                assigned.update(matching)
+                ]
+                if matching:
+                    aliases.setdefault(val, []).extend(matching)
+                    assigned.update(matching)
 
     return aliases if aliases else None
 

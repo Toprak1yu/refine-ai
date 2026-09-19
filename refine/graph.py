@@ -27,7 +27,11 @@ def schema_inference_node(state: AgentState) -> dict[str, Any]:
 
     logger.info(f"Starting schema inference (session={state.get('session_id')}, seed={seed})")
 
-    df = pl.DataFrame(state["records"]) if state.get("records") else pl.read_csv(state["raw_file_path"])
+    df = (
+        pl.DataFrame(state["records"])
+        if state.get("records")
+        else pl.read_csv(state["raw_file_path"], infer_schema_length=None, ignore_errors=True)
+    )
     schema, method = infer_schema(df)
     schema_dict = schema.model_dump()
 
