@@ -38,6 +38,7 @@ def profile_dataset(
 
         col_summary: dict[str, Any] = {
             "type": col_type,
+            "semantic_type": col_schema.get("semantic_type"),
             "null_count": null_count,
             "null_ratio": round(null_ratio, 4),
             "outliers_count": 0,
@@ -67,8 +68,9 @@ def profile_dataset(
         if col_type in ("Int32", "Int64", "Float32", "Float64"):
             non_nulls = df[col].drop_nulls().to_numpy()
             if len(non_nulls) > 0:
+                is_categorical = col_schema.get("semantic_type") == "categorical"
                 bounds = col_schema.get("valid_bounds")
-                if bounds and len(bounds) == 2:
+                if not is_categorical and bounds and len(bounds) == 2:
                     low, high = bounds
                     invalid_mask = (non_nulls < low) | (non_nulls > high)
                     invalid_count = int(np.sum(invalid_mask))
@@ -124,7 +126,7 @@ def profile_dataset(
                                 }
                             )
 
-                elif not is_binary:
+                elif not is_binary and not is_categorical:
                     mean = np.mean(non_nulls)
                     std = np.std(non_nulls)
                     if std > 0:

@@ -152,11 +152,14 @@ def build_execution_manifest(
             if nulls:
                 parts.append(f"{nulls} NA")
             detail = f" ({', '.join(parts)})" if parts else ""
+            col_type = stats.get("type", "")
+            sem_type = stats.get("semantic_type", "")
+            impute_method = "Mode" if (col_type == "String" or sem_type == "categorical") else "Median"
             planned_actions.append(
                 {
                     "tool": "IMPUTE",
                     "column": col,
-                    "description": f"Median Impute{detail}",
+                    "description": f"{impute_method} Impute{detail}",
                 }
             )
         elif strat == "SYNTHETIC_SYNTHESIS":
@@ -180,11 +183,12 @@ def build_execution_manifest(
                     }
                 )
         elif strat in ("DROP", "DROP_COLUMN"):
+            null_detail = f" ({nulls} NA)" if nulls else ""
             planned_actions.append(
                 {
                     "tool": "DROP",
                     "column": col,
-                    "description": "Drop feature column from dataset (preserves all records)",
+                    "description": f"Drop column{null_detail} (preserves all records)",
                 }
             )
         else:

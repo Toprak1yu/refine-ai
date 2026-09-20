@@ -41,11 +41,14 @@ def apply_human_resolutions(
             )
 
         elif strategy == "STATISTICAL_IMPUTE":
-            if is_numerical:
-                df, logs = _impute_numerical(df, column, col_schema)
-                audit_logs.extend(logs)
-            elif col_type == "String":
+            is_cat = col_type == "String" or (
+                col_schema and getattr(col_schema, "semantic_type", None) == "categorical"
+            )
+            if is_cat:
                 df, logs = _impute_categorical(df, column)
+                audit_logs.extend(logs)
+            elif is_numerical:
+                df, logs = _impute_numerical(df, column, col_schema)
                 audit_logs.extend(logs)
             else:
                 audit_logs.append(f"STATISTICAL_IMPUTE skipped for '{column}': unsupported type '{col_type}'.")

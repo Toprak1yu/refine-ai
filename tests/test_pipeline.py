@@ -561,3 +561,43 @@ def test_nominal_numeric_columns_ignored():
 
     assert schema.columns["age"].role == "feature"
     assert schema.columns["age"].semantic_type == "numerical"
+
+
+def test_excessive_missingness_recommends_drop():
+    from refine.tools.advisor import get_recommended_strategies
+
+    issues = [
+        {"column": "sparse_col", "type": "HIGH_NULL_RATIO", "ratio": 0.95},
+        {"column": "moderate_col", "type": "HIGH_NULL_RATIO", "ratio": 0.25},
+    ]
+
+    strat = get_recommended_strategies(issues)
+    assert strat["sparse_col"] == "DROP"
+    assert strat["moderate_col"] == "STATISTICAL_IMPUTE"
+
+
+def test_manifest_mode_impute_for_strings():
+    from refine.profiler.reporters import build_execution_manifest
+
+    manifest = build_execution_manifest(
+        raw_path="data/raw/test.csv",
+        processed_path="data/processed/clean.csv",
+        session_id="test_sess",
+        total_rows=100,
+        audit_trail=[],
+        critical_issues=[
+            {"column": "cat_col", "type": "HIGH_NULL_RATIO", "ratio": 0.25},
+            {"column": "num_col", "type": "HIGH_NULL_RATIO", "ratio": 0.25},
+        ],
+        recommended_strategies={"cat_col": "STATISTICAL_IMPUTE", "num_col": "STATISTICAL_IMPUTE"},
+        profile={
+            "columns": {
+                "cat_col": {"type": "String", "outliers_count": 0, "null_count": 25},
+                "num_col": {"type": "Float64", "outliers_count": 0, "null_count": 25},
+            }
+        },
+    )
+
+    actions = {a["column"]: a["description"] for a in manifest["planned_actions"]}
+    assert "Mode Impute" in actions["cat_col"]
+    assert "Median Impute" in actions["num_col"]

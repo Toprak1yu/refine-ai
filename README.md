@@ -1,4 +1,4 @@
-# refine-ai `v0.3.3`
+# refine-ai `v0.3.4`
 
 [![PyPI](https://img.shields.io/pypi/v/refine-ai.svg?color=blue)](https://pypi.org/project/refine-ai/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
@@ -77,7 +77,7 @@ refine-ai/
 │   ├── raw/                     # Untouched source datasets
 │   └── processed/               # Cleaned datasets and markdown audit reports
 ├── refine/
-│   ├── __init__.py              # Package version (0.3.3)
+│   ├── __init__.py              # Package version (0.3.4)
 │   ├── cli.py                   # Typer & Rich interactive CLI interface
 │   ├── graph.py                 # LangGraph StateGraph & interrupt workflow
 │   ├── logger.py                # Structured console logging utilities

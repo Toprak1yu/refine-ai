@@ -61,11 +61,18 @@ def _format_col_issues(issues: list[dict[str, Any]]) -> str:
     return " & ".join(parts)
 
 
-def _build_column_recommendation(col: str, issues: list[dict[str, Any]]) -> str:
+def _build_column_recommendation(col: str, issues: list[dict[str, Any]], col_type: str = "") -> str:
     issue_desc = _format_col_issues(issues)
     issue_types = {i.get("type", "") for i in issues}
+    null_ratio = max((i.get("ratio", 0.0) for i in issues if i.get("type") == "HIGH_NULL_RATIO"), default=0.0)
 
-    if "CLASS_IMBALANCE" in issue_types:
+    if null_ratio >= 0.50:
+        strategy = "DROP"
+        impact = (
+            f"High missingness ({null_ratio * 100:.1f}%) exceeds the 50% threshold for reliable imputation; "
+            f"dropping the column preserves data integrity without losing records."
+        )
+    elif "CLASS_IMBALANCE" in issue_types:
         imb_issue = next(i for i in issues if i.get("type") == "CLASS_IMBALANCE")
         val = imb_issue.get("minority_value", 1)
         strategy = "SYNTHETIC_SYNTHESIS"
@@ -92,10 +99,13 @@ def _build_column_recommendation(col: str, issues: list[dict[str, Any]]) -> str:
         )
     elif "HIGH_NULL_RATIO" in issue_types:
         strategy = "STATISTICAL_IMPUTE"
-        impact = "Missing cells are populated with the statistical central tendency to prevent row loss."
+        if col_type == "String":
+            impact = "Missing categorical values are imputed with the most frequent value (mode) to prevent row loss."
+        else:
+            impact = "Missing cells are populated with the statistical median to prevent row loss."
     else:
         strategy = "STATISTICAL_IMPUTE"
-        impact = "Anomalous cells are imputed with median/mode to maintain data integrity."
+        impact = "Anomalous cells are imputed to maintain data integrity."
 
     return f"• '{col}' ({issue_desc}):\n  ➜ Recommended Decision: {strategy}\n  ➜ Decision Impact: {impact}"
 
@@ -110,7 +120,11 @@ def generate_expert_advice(profile: dict[str, Any], critical_issues: list) -> st
         col = issue.get("column", "unknown")
         grouped.setdefault(col, []).append(issue)
 
-    recommendations = [_build_column_recommendation(col, issues) for col, issues in grouped.items()]
+    col_stats = profile.get("columns", {}) if profile else {}
+    recommendations = [
+        _build_column_recommendation(col, issues, col_stats.get(col, {}).get("type", ""))
+        for col, issues in grouped.items()
+    ]
 
     heuristic_advice = (
         "[Local Rule-Engine Fallback]:\n\n" + "\n\n".join(recommendations)
@@ -133,15 +147,29 @@ def generate_expert_advice(profile: dict[str, Any], critical_issues: list) -> st
         system_prompt = (
             f"You are a Senior Principal Data Architect enforcing this operational governance ruleset:\n\n"
             f"{rules_content}\n\n"
-            f"Analyze the dataset profile and critical anomalies. Provide concise, structured recommendations in English.\n"
-            f"CRITICAL RULE: For each anomalous feature, you MUST recommend EXACTLY ONE decisive strategy (strictly one of: DROP, STATISTICAL_IMPUTE, SYNTHETIC_SYNTHESIS, MANUAL_INPUT). Do NOT offer multiple choices, alternatives, or words like 'or'. Be completely decisive.\n\n"
-            f"Format strictly as:\n"
+            f"For each anomalous column listed below, you MUST recommend EXACTLY ONE decisive strategy.\n"
+            f"Allowed strategies: DROP, STATISTICAL_IMPUTE, SYNTHETIC_SYNTHESIS, MANUAL_INPUT.\n\n"
+            f"CORE RULES:\n"
+            f"- If missingness is >= 50% (HIGH_NULL_RATIO with ratio >= 0.50), ALWAYS recommend DROP.\n"
+            f"- For columns with moderate missingness (< 50%) or invalid bounds, recommend STATISTICAL_IMPUTE.\n"
+            f"- For target columns with class imbalance, recommend SYNTHETIC_SYNTHESIS.\n"
+            f"- For continuous numerical columns with outliers, recommend SYNTHETIC_SYNTHESIS.\n"
+            f"- Do NOT recommend SYNTHETIC_SYNTHESIS for categorical or discrete columns.\n\n"
+            f"CRITICAL FORMATTING:\n"
+            f"Do NOT write any preamble, introduction, summary, numbered list, or markdown headers.\n"
+            f"Output ONLY a bullet point for each column strictly in this format:\n"
             f"• '<column_name>':\n"
             f"  ➜ Recommended Decision: <EXACTLY_ONE_STRATEGY>\n"
-            f"  ➜ Decision Impact: 1-2 sentences explaining the concrete impact on data integrity, row count, variance, or ML model bias if this strategy is chosen."
+            f"  ➜ Decision Impact: 1-2 sentences explaining the impact.\n"
         )
 
-        user_content = f"Dataset Profile:\n{profile}\n\nCritical Anomalies Detected:\n{critical_issues}"
+        anomalies_summary = []
+        for col, issues in grouped.items():
+            col_type = col_stats.get(col, {}).get("type", "unknown")
+            issue_lines = [f"  - {i.get('type')}: {i.get('message', '')}" for i in issues]
+            anomalies_summary.append(f"Column '{col}' (Type: {col_type}):\n" + "\n".join(issue_lines))
+
+        user_content = "Anomalous Columns to evaluate:\n\n" + "\n\n".join(anomalies_summary)
 
         response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_content)])
 
@@ -171,7 +199,11 @@ def get_recommended_strategies(critical_issues: list[dict[str, Any]], advice_tex
                 continue
 
         issue_types = {i.get("type", "") for i in col_issues}
-        if "CLASS_IMBALANCE" in issue_types:
+        null_ratio = max((i.get("ratio", 0.0) for i in col_issues if i.get("type") == "HIGH_NULL_RATIO"), default=0.0)
+
+        if null_ratio >= 0.50:
+            recommendations[col] = "DROP"
+        elif "CLASS_IMBALANCE" in issue_types:
             recommendations[col] = "SYNTHETIC_SYNTHESIS"
         elif "INVALID_BOUNDS" in issue_types and "STATISTICAL_OUTLIER" in issue_types:
             recommendations[col] = "STATISTICAL_IMPUTE"

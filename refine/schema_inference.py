@@ -160,10 +160,15 @@ _ID_PATTERNS = re.compile(
 _IGNORE_PATTERNS = re.compile(
     r"(?:name|description|comment|note|text|address|detail|summary"
     r"|street|block|lot|parcel|ward|tract|precinct|district"
+    r"|\bunit\b|\bapt\b|\bsuite\b|\broom\b|floor"
     r"|zip(?:code)?|postal|(?:area.?code)"
     r"|phone|tel(?:ephone)?|fax|mobile|cell"
     r"|latitude|longitude|(?:^lat$)|(?:^lng$)|(?:^lon$)"
     r"|(?:^ssn$)|(?:^ein$)|(?:^tin$))",
+    re.IGNORECASE,
+)
+_CATEGORY_PATTERNS = re.compile(
+    r"(?:type|code|category|class|group|status|mode|level|grade|tier|stage)",
     re.IGNORECASE,
 )
 _TARGET_PATTERNS = re.compile(
@@ -249,6 +254,17 @@ def _infer_schema_heuristic(df: pl.DataFrame) -> DatasetSchema:
                     role="ignore",
                     semantic_type="numerical",
                     description=f"Nominal/identifier numeric column ({unique_count} unique values)",
+                )
+                continue
+
+            is_integer = col_type in ("Int32", "Int64")
+            if is_integer and (
+                (unique_count <= 25 and _CATEGORY_PATTERNS.search(col)) or (unique_count <= 10 and total_non_null >= 50)
+            ):
+                columns[col] = ColumnSchema(
+                    role="feature",
+                    semantic_type="categorical",
+                    description=f"Discrete categorical feature ({unique_count} unique values)",
                 )
                 continue
 
