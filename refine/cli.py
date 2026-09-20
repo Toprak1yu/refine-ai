@@ -158,27 +158,49 @@ def prompt_model_selection(installed_models: list[str]) -> str | None:
     return selected
 
 
-def _validate_input_file(file_path: Path) -> None:
+def _resolve_input_path(file_path: str | Path) -> Path:
+    """Resolves user input path with smart fallbacks for common mistakes like missing leading slash or extension."""
+    raw_str = str(file_path).strip().strip("'\"")
+    p = Path(raw_str).expanduser()
+    if p.exists() and p.is_file():
+        return p
+
+    candidates = [
+        p.with_suffix(".csv") if p.suffix != ".csv" else None,
+        Path("/" + raw_str).expanduser() if not raw_str.startswith("/") else None,
+        Path("/" + raw_str + ".csv").expanduser() if not raw_str.startswith("/") else None,
+    ]
+    for candidate in candidates:
+        if candidate and candidate.exists() and candidate.is_file():
+            return candidate
+
+    return p
+
+
+def _validate_input_file(file_path: Path) -> Path:
     """Validates that input raw data file exists, is readable, and non-empty."""
-    if not file_path.exists():
+    resolved = _resolve_input_path(file_path)
+    if not resolved.exists():
         console.print(f"\n[bold red]Error:[/bold red] Target raw data file '{file_path}' not found.\n")
         logger.error(f"File not found: {file_path}")
         raise typer.Exit(code=1)
 
-    if file_path.stat().st_size == 0:
-        console.print(f"\n[bold red]Error:[/bold red] Target file '{file_path}' is empty (0 bytes).\n")
-        logger.error(f"Empty file: {file_path}")
+    if resolved.stat().st_size == 0:
+        console.print(f"\n[bold red]Error:[/bold red] Target file '{resolved}' is empty (0 bytes).\n")
+        logger.error(f"Empty file: {resolved}")
         raise typer.Exit(code=1)
 
     try:
-        sample = pl.read_csv(file_path, n_rows=5, infer_schema_length=None, ignore_errors=True)
+        sample = pl.read_csv(resolved, n_rows=5, infer_schema_length=None, ignore_errors=True)
         if sample.width == 0:
-            console.print(f"\n[bold red]Error:[/bold red] Target file '{file_path}' contains no valid columns.\n")
+            console.print(f"\n[bold red]Error:[/bold red] Target file '{resolved}' contains no valid columns.\n")
             raise typer.Exit(code=1) from None
     except Exception as e:
-        console.print(f"\n[bold red]Error parsing CSV file '{file_path}':[/bold red] {e}\n")
-        logger.error(f"CSV parse failure on {file_path}: {e}")
+        console.print(f"\n[bold red]Error parsing CSV file '{resolved}':[/bold red] {e}\n")
+        logger.error(f"CSV parse failure on {resolved}: {e}")
         raise typer.Exit(code=1) from None
+
+    return resolved
 
 
 @app.command()
@@ -196,8 +218,7 @@ def run(
     stream: bool = typer.Option(True, "--stream/--no-stream", help="Enable or disable ChatGPT-style streaming output"),
 ):
     """Executes the pipeline graph, gracefully pausing on anomalies for human governance."""
-    raw_path = Path(file)
-    _validate_input_file(raw_path)
+    raw_path = _validate_input_file(Path(file))
 
     if output is None:
         clean_name = f"clean_{raw_path.name}" if not raw_path.name.startswith("clean_") else raw_path.name
@@ -432,8 +453,7 @@ def profile(
     model: str = typer.Option("qwen2.5-coder:14b", "--model", "-m", help="Ollama LLM model name"),
 ):
     """Profiles a dataset and inspects anomalies without modifying or writing data."""
-    raw_path = Path(file)
-    _validate_input_file(raw_path)
+    raw_path = _validate_input_file(Path(file))
 
     if model:
         os.environ["OLLAMA_MODEL"] = model
@@ -561,7 +581,7 @@ def main(
 
         console.print()
 
-        raw_path = Path(selected_file.strip())
+        raw_path = _resolve_input_path(selected_file)
         clean_name = f"clean_{raw_path.name}" if not raw_path.name.startswith("clean_") else raw_path.name
 
         ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
@@ -575,7 +595,7 @@ def main(
 
         ctx.invoke(
             run,
-            file=selected_file.strip(),
+            file=str(raw_path),
             output=str(Path("data/processed") / clean_name),
             thread_id="session_001",
             model=selected_model,
