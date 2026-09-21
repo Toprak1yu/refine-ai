@@ -148,9 +148,11 @@ def build_execution_manifest(
         if strat == "STATISTICAL_IMPUTE":
             parts = []
             if outliers:
-                parts.append(f"{outliers} outliers")
+                outlier_pct = f" ({(outliers / total_rows) * 100:.1f}%)" if total_rows > 0 else ""
+                parts.append(f"{outliers} outliers{outlier_pct}")
             if nulls:
-                parts.append(f"{nulls} NA")
+                null_pct = f" ({(nulls / total_rows) * 100:.1f}%)" if total_rows > 0 else ""
+                parts.append(f"{nulls} NA{null_pct}")
             detail = f" ({', '.join(parts)})" if parts else ""
             col_type = stats.get("type", "")
             sem_type = stats.get("semantic_type", "")
@@ -175,15 +177,17 @@ def build_execution_manifest(
                     }
                 )
             else:
+                outlier_pct = f" ({(outliers / total_rows) * 100:.1f}%)" if total_rows > 0 else ""
                 planned_actions.append(
                     {
                         "tool": "SYNTHESIS",
                         "column": col,
-                        "description": f"Gaussian Synthesis ({outliers} outliers)",
+                        "description": f"Gaussian Synthesis ({outliers} outliers{outlier_pct})",
                     }
                 )
         elif strat in ("DROP", "DROP_COLUMN"):
-            null_detail = f" ({nulls} NA)" if nulls else ""
+            null_pct = f", {(nulls / total_rows) * 100:.1f}%" if nulls and total_rows > 0 else ""
+            null_detail = f" ({nulls} NA{null_pct})" if nulls else ""
             planned_actions.append(
                 {
                     "tool": "DROP",

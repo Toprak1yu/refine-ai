@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "refine-ai"
-version = "0.3.5"
+version = "0.3.6"
 description = "Autonomous Data Pipeline & Synthesis Agent with Human-in-the-Loop Governance"
 readme = "README.md"
 requires-python = ">=3.11"

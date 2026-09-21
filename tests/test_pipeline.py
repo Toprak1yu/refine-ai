@@ -601,3 +601,26 @@ def test_manifest_mode_impute_for_strings():
     actions = {a["column"]: a["description"] for a in manifest["planned_actions"]}
     assert "Mode Impute" in actions["cat_col"]
     assert "Median Impute" in actions["num_col"]
+
+
+def test_anomaly_percentages_displayed():
+    from refine.profiler.stats import profile_dataset
+
+    df = pl.DataFrame(
+        {
+            "val": [10.0] * 99 + [10000.0] * 1,
+        }
+    )
+    schema_dict = {
+        "columns": {
+            "val": {
+                "role": "feature",
+                "semantic_type": "numerical",
+                "valid_bounds": [0.0, 50.0],
+            }
+        }
+    }
+    profile = profile_dataset(df, schema=schema_dict)
+    anomalies_str = " ".join(profile["columns"]["val"]["anomalies"])
+    assert "Out-of-bounds (1.0%)" in anomalies_str
+    assert "Outliers (1.0%)" in anomalies_str

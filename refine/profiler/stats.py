@@ -75,16 +75,18 @@ def profile_dataset(
                     invalid_mask = (non_nulls < low) | (non_nulls > high)
                     invalid_count = int(np.sum(invalid_mask))
                     if invalid_count > 0:
-                        col_summary["anomalies"].append(f"{invalid_count} Out-of-bounds")
+                        invalid_ratio = invalid_count / total_rows
+                        col_summary["anomalies"].append(f"{invalid_count} Out-of-bounds ({invalid_ratio * 100:.1f}%)")
                         profile["critical_issues"].append(
                             {
                                 "column": col,
                                 "type": "INVALID_BOUNDS",
                                 "count": invalid_count,
+                                "ratio": invalid_ratio,
                                 "bounds": bounds,
                                 "message": (
                                     f"Column '{col}' contains {invalid_count} values "
-                                    f"outside valid domain [{low}, {high}]."
+                                    f"({invalid_ratio * 100:.1f}%) outside valid domain [{low}, {high}]."
                                 ),
                             }
                         )
@@ -134,15 +136,17 @@ def profile_dataset(
                         outliers = int(np.sum(z_scores > ZSCORE_THRESHOLD))
                         col_summary["outliers_count"] = outliers
                         if outliers > 0:
-                            col_summary["anomalies"].append(f"{outliers} Outliers")
+                            outlier_ratio = outliers / total_rows
+                            col_summary["anomalies"].append(f"{outliers} Outliers ({outlier_ratio * 100:.1f}%)")
                             profile["critical_issues"].append(
                                 {
                                     "column": col,
                                     "type": "STATISTICAL_OUTLIER",
                                     "count": outliers,
+                                    "ratio": outlier_ratio,
                                     "message": (
                                         f"Column '{col}' contains {outliers} severe outliers "
-                                        f"(|Z-score| > {ZSCORE_THRESHOLD})."
+                                        f"({outlier_ratio * 100:.1f}%) (|Z-score| > {ZSCORE_THRESHOLD})."
                                     ),
                                 }
                             )
