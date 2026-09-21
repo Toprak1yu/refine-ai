@@ -98,7 +98,7 @@ def synthesize_numerical_feature(
     )
 
     valid_data = df.filter(
-        pl.col(column).is_not_null() & (pl.col(column) > lower_bound) & (pl.col(column) < upper_bound)
+        pl.col(column).is_not_null() & (pl.col(column) >= lower_bound) & (pl.col(column) <= upper_bound)
     )[column].to_numpy()
 
     if len(valid_data) == 0:
@@ -108,17 +108,22 @@ def synthesize_numerical_feature(
     mean_val = float(np.mean(valid_data))
     std_val = float(np.std(valid_data))
 
-    anomalous_mask = (pl.col(column).is_null()) | (pl.col(column) >= upper_bound) | (pl.col(column) <= lower_bound)
+    anomalous_mask = (pl.col(column).is_null()) | (pl.col(column) > upper_bound) | (pl.col(column) < lower_bound)
     anom_count = df.filter(anomalous_mask).height
 
     if anom_count == 0:
         return df, logs
 
-    syn_values = np.clip(
+    raw_syn = np.clip(
         np.random.normal(mean_val, std_val, anom_count),
         lower_bound,
         min(upper_bound, mean_val + 3 * std_val),
-    ).astype(int)
+    )
+    col_dtype = df.schema[column]
+    if col_dtype in (pl.Int32, pl.Int64):
+        syn_values = np.round(raw_syn).astype(int)
+    else:
+        syn_values = np.round(raw_syn, 2)
 
     mask = df.select(anomalous_mask.alias("m")).to_series().to_numpy()
     values = df[column].fill_null(0).to_numpy().copy()
