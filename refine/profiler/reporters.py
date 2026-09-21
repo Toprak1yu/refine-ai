@@ -186,13 +186,16 @@ def build_execution_manifest(
                     }
                 )
         elif strat in ("DROP", "DROP_COLUMN"):
-            null_pct = f", {(nulls / total_rows) * 100:.1f}%" if nulls and total_rows > 0 else ""
-            null_detail = f" ({nulls} NA{null_pct})" if nulls else ""
+            if nulls:
+                null_pct = f" ({(nulls / total_rows) * 100:.1f}%)" if total_rows > 0 else ""
+                desc = f"Drop column ({nulls} NA{null_pct}, preserves all records)"
+            else:
+                desc = "Drop column (preserves all records)"
             planned_actions.append(
                 {
                     "tool": "DROP",
                     "column": col,
-                    "description": f"Drop column{null_detail} (preserves all records)",
+                    "description": desc,
                 }
             )
         else:

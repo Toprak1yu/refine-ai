@@ -588,12 +588,18 @@ def test_manifest_mode_impute_for_strings():
         critical_issues=[
             {"column": "cat_col", "type": "HIGH_NULL_RATIO", "ratio": 0.25},
             {"column": "num_col", "type": "HIGH_NULL_RATIO", "ratio": 0.25},
+            {"column": "drop_col", "type": "HIGH_NULL_RATIO", "ratio": 0.90},
         ],
-        recommended_strategies={"cat_col": "STATISTICAL_IMPUTE", "num_col": "STATISTICAL_IMPUTE"},
+        recommended_strategies={
+            "cat_col": "STATISTICAL_IMPUTE",
+            "num_col": "STATISTICAL_IMPUTE",
+            "drop_col": "DROP",
+        },
         profile={
             "columns": {
                 "cat_col": {"type": "String", "outliers_count": 0, "null_count": 25},
                 "num_col": {"type": "Float64", "outliers_count": 0, "null_count": 25},
+                "drop_col": {"type": "String", "outliers_count": 0, "null_count": 90},
             }
         },
     )
@@ -601,6 +607,8 @@ def test_manifest_mode_impute_for_strings():
     actions = {a["column"]: a["description"] for a in manifest["planned_actions"]}
     assert "Mode Impute" in actions["cat_col"]
     assert "Median Impute" in actions["num_col"]
+    assert actions["drop_col"] == "Drop column (90 NA (90.0%), preserves all records)"
+    assert "25 NA (25.0%)" in actions["cat_col"]
 
 
 def test_anomaly_percentages_displayed():
