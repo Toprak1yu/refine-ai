@@ -624,3 +624,88 @@ def test_anomaly_percentages_displayed():
     anomalies_str = " ".join(profile["columns"]["val"]["anomalies"])
     assert "Out-of-bounds (1.0%)" in anomalies_str
     assert "Outliers (1.0%)" in anomalies_str
+
+
+def test_prompt_output_directory(tmp_path):
+    import io
+    import sys
+    from pathlib import Path
+
+    from refine.cli import prompt_output_directory
+
+    raw_file = tmp_path / "dataset.csv"
+    orig_stdin = sys.stdin
+    try:
+        sys.stdin = io.StringIO("1\n")
+        dest_same = prompt_output_directory(raw_file)
+        assert dest_same == tmp_path
+
+        sys.stdin = io.StringIO(f"2\n{tmp_path / 'custom_out'}\n")
+        dest_custom = prompt_output_directory(raw_file)
+        assert dest_custom == tmp_path / "custom_out"
+
+        sys.stdin = io.StringIO("2\n\n")
+        dest_empty_custom = prompt_output_directory(raw_file)
+        assert dest_empty_custom == Path("data/processed")
+
+        sys.stdin = io.StringIO("3\n")
+        dest_default = prompt_output_directory(raw_file)
+        assert dest_default == Path("data/processed")
+    finally:
+        sys.stdin = orig_stdin
+
+
+def test_cli_output_directory_interactive_same_dir(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    monkeypatch.setenv("OLLAMA_HOST", "http://localhost:1")
+    runner = CliRunner()
+    raw_file = tmp_path / "input_data.csv"
+    df = pl.DataFrame({"id": [1, 2, 3], "val": [10, 20, 30]})
+    df.write_csv(str(raw_file))
+
+    result = runner.invoke(app, [], input=f"{raw_file}\n1\ny\n")
+    assert result.exit_code == 0
+    assert (tmp_path / "clean_input_data.csv").exists()
+    assert (tmp_path / "clean_input_data_audit_report.md").exists()
+
+
+def test_cli_output_directory_interactive_custom_dir(tmp_path, monkeypatch):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    monkeypatch.setenv("OLLAMA_HOST", "http://localhost:1")
+    runner = CliRunner()
+    raw_file = tmp_path / "input_data.csv"
+    custom_dir = tmp_path / "my_custom_destination"
+    df = pl.DataFrame({"id": [1, 2, 3], "val": [10, 20, 30]})
+    df.write_csv(str(raw_file))
+
+    result = runner.invoke(app, [], input=f"{raw_file}\n2\n{custom_dir}\ny\n")
+    assert result.exit_code == 0
+    assert (custom_dir / "clean_input_data.csv").exists()
+    assert (custom_dir / "clean_input_data_audit_report.md").exists()
+
+
+def test_cli_run_directory_output_option(tmp_path):
+    from typer.testing import CliRunner
+
+    from refine.cli import app
+
+    runner = CliRunner()
+    raw_file = tmp_path / "raw.csv"
+    out_dir = tmp_path / "processed_dir"
+    out_dir.mkdir()
+
+    df = pl.DataFrame({"id": [1, 2, 3], "val": [10, 20, 30]})
+    df.write_csv(str(raw_file))
+
+    result = runner.invoke(
+        app,
+        ["run", "-f", str(raw_file), "-o", str(out_dir), "--no-stream", "--dry-run"],
+    )
+    assert result.exit_code == 0
+    assert "DRY-RUN COMPLETE" in result.output

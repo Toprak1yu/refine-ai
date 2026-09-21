@@ -158,6 +158,46 @@ def prompt_model_selection(installed_models: list[str]) -> str | None:
     return selected
 
 
+def prompt_output_directory(raw_path: Path) -> Path:
+    """Prompts operator to select the output destination directory for clean dataset and audit report."""
+    input_dir = raw_path.resolve().parent
+    default_dir = Path("data/processed")
+
+    console.print("  [bold cyan]Available Output Destinations:[/bold cyan]")
+    console.print(f"    [bold cyan][1][/bold cyan] Same directory as input file ({input_dir})")
+    console.print("    [bold cyan][2][/bold cyan] Custom directory (Enter path)")
+    console.print("    [bold cyan][3][/bold cyan] Default directory (data/processed/)\n")
+
+    choice = Prompt.ask(
+        "  [bold cyan]➜[/bold cyan] [bold]Select output destination[/bold]",
+        choices=["1", "2", "3"],
+        default="3",
+        show_choices=False,
+        show_default=False,
+    )
+
+    if choice == "1":
+        dest = input_dir
+    elif choice == "2":
+        custom_input = Prompt.ask("  [bold cyan]➜[/bold cyan] [bold]Enter custom output directory[/bold]")
+        clean_input = custom_input.strip().strip("'\"") if custom_input else ""
+        if not clean_input:
+            console.print("  [bold yellow]ℹ[/bold yellow]  No custom path specified. Defaulting to data/processed/.\n")
+            dest = default_dir
+        else:
+            cand = Path(clean_input).expanduser()
+            if not clean_input.startswith("/") and (
+                Path("/" + clean_input).exists() or Path("/" + clean_input).parent.exists()
+            ):
+                cand = Path("/" + clean_input).expanduser()
+            dest = cand
+    else:
+        dest = default_dir
+
+    console.print(f"  [bold green]✓[/bold green] Selected output destination: [bold green]{dest}[/bold green]\n")
+    return dest
+
+
 def _resolve_input_path(file_path: str | Path) -> Path:
     """Resolves user input path with smart fallbacks for common mistakes like missing leading slash or extension."""
     raw_str = str(file_path).strip().strip("'\"")
@@ -220,9 +260,14 @@ def run(
     """Executes the pipeline graph, gracefully pausing on anomalies for human governance."""
     raw_path = _validate_input_file(Path(file))
 
+    clean_name = f"clean_{raw_path.name}" if not raw_path.name.startswith("clean_") else raw_path.name
+
     if output is None:
-        clean_name = f"clean_{raw_path.name}" if not raw_path.name.startswith("clean_") else raw_path.name
         output = str(Path("data/processed") / clean_name)
+    else:
+        out_p = Path(output)
+        if out_p.is_dir() or str(output).endswith(("/", "\\")):
+            output = str(out_p / clean_name)
 
     ollama_base_url = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     if model == "select":
@@ -593,10 +638,16 @@ def main(
                 if selected_model is None:
                     os.environ["OLLAMA_DISABLED"] = "1"
 
+        output_dir = prompt_output_directory(raw_path)
+        if output_dir.suffix.lower() == ".csv":
+            target_output = str(output_dir)
+        else:
+            target_output = str(output_dir / clean_name)
+
         ctx.invoke(
             run,
             file=str(raw_path),
-            output=str(Path("data/processed") / clean_name),
+            output=target_output,
             thread_id="session_001",
             model=selected_model,
             seed=42,

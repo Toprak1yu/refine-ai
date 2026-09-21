@@ -1,4 +1,4 @@
-# refine-ai `v0.3.6`
+# refine-ai `v0.3.7`
 
 [![PyPI](https://img.shields.io/pypi/v/refine-ai.svg?color=blue)](https://pypi.org/project/refine-ai/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
@@ -17,7 +17,7 @@
 - **Constitutional Governance (`RULES.md`):** Enforces strict statistical invariants (null ratio thresholds, Z-score bounds, domain range constraints, class imbalance limits).
 - **Human-in-the-Loop (HITL) State Machine:** Employs LangGraph's native `interrupt()` mechanism and persistent SQLite checkpointers (`.checkpoints.db`) to pause graph execution and yield control to the human operator.
 - **AI-Driven Streaming Output:** Experience live typewriter-style streaming (`--stream / --no-stream`) for operational logs, status steps, and expert guidance.
-- **Interactive CLI Wizard (`refine`):** Run `refine` directly without arguments to launch an interactive wizard that prompts for dataset location and launches the pipeline seamlessly.
+- **Interactive CLI Wizard (`refine`):** Run `refine` directly without arguments to launch an interactive wizard that prompts for dataset location, model selection, and customizable output destination (source directory, custom path, or default).
 - **Planned Execution Manifest:** High-visibility audit plan rendered before modifying data. Review all planned pre-cleaning and remediation actions with one-click approval or individual column-level overrides.
 - **Dry-Run Mode (`--dry-run`):** Inspect inferred schemas, anomaly profiles, AI recommendations, and planned execution manifests without modifying source data or writing any files to disk.
 - **AI Dataset Schema Inference:** Automatically infers column roles (`id`, `target`, `feature`, `ignore`), semantic types (`numerical`, `categorical`, `binary`, `text`), domain bounds, and canonical aliases via local Ollama LLM with intelligent heuristic fallbacks.
@@ -77,7 +77,7 @@ refine-ai/
 │   ├── raw/                     # Untouched source datasets
 │   └── processed/               # Cleaned datasets and markdown audit reports
 ├── refine/
-│   ├── __init__.py              # Package version (0.3.6)
+│   ├── __init__.py              # Package version (0.3.7)
 │   ├── cli.py                   # Typer & Rich interactive CLI interface
 │   ├── graph.py                 # LangGraph StateGraph & interrupt workflow
 │   ├── logger.py                # Structured console logging utilities
