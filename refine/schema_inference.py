@@ -46,7 +46,7 @@ def _build_dataset_summary(df: pl.DataFrame) -> str:
     for col in df.columns:
         col_type = str(df.schema[col])
         null_count = df[col].null_count()
-        null_pct = f"{(null_count / df.height) * 100:.1f}%"
+        null_pct = f"{(null_count / df.height) * 100:.1f}%" if df.height > 0 else "0.0%"
         unique_count = df[col].drop_nulls().n_unique()
 
         samples = df[col].drop_nulls().head(5).to_list()

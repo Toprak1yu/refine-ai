@@ -27,6 +27,9 @@ def profile_dataset(
         "critical_issues": [],
     }
 
+    if total_rows == 0:
+        return profile
+
     schema_columns = (schema or {}).get("columns", {})
     target_column = (schema or {}).get("target_column")
 

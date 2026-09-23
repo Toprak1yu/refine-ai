@@ -717,3 +717,19 @@ def test_cli_run_directory_output_option(tmp_path):
     )
     assert result.exit_code == 0
     assert "DRY-RUN COMPLETE" in result.output
+
+
+def test_empty_dataframe_zero_division_guard():
+    from refine.profiler.stats import profile_dataset
+    from refine.tools.synthesizer import synthesize_minority_class
+
+    empty_df = pl.DataFrame(
+        {"id": [], "score": [], "target": []}, schema={"id": pl.Int64, "score": pl.Float64, "target": pl.Int64}
+    )
+    profile = profile_dataset(empty_df)
+    assert profile["total_rows"] == 0
+    assert profile["critical_issues"] == []
+
+    syn_df, logs = synthesize_minority_class(empty_df, target_col="target")
+    assert syn_df.height == 0
+    assert any("Empty dataset provided" in log for log in logs)

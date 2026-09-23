@@ -1,4 +1,4 @@
-# refine-ai `v0.3.8`
+# refine-ai `v0.3.9`
 
 [![PyPI](https://img.shields.io/pypi/v/refine-ai.svg?color=blue)](https://pypi.org/project/refine-ai/)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue.svg)](https://www.python.org/)
@@ -69,6 +69,7 @@
 
 ```
 refine-ai/
+├── LICENSE                       # MIT License
 ├── RULES.md                      # Operational governance constitution
 ├── pyproject.toml                # Project packaging, dependencies & entrypoint
 ├── ruff.toml                     # Linter & code formatter configuration
@@ -77,16 +78,18 @@ refine-ai/
 │   ├── raw/                     # Untouched source datasets
 │   └── processed/               # Cleaned datasets and markdown audit reports
 ├── refine/
-│   ├── __init__.py              # Package version (0.3.8)
+│   ├── __init__.py              # Package version (0.3.9)
 │   ├── cli.py                   # Typer & Rich interactive CLI interface
 │   ├── graph.py                 # LangGraph StateGraph & interrupt workflow
 │   ├── logger.py                # Structured console logging utilities
 │   ├── schema_inference.py      # AI & heuristic schema inference engine
 │   ├── state.py                 # TypedDict pipeline state schema
 │   ├── profiler/
+│   │   ├── __init__.py          # Profiler package init
 │   │   ├── stats.py             # Polars & SciPy statistical profiling engine
 │   │   └── reporters.py         # Rich terminal tables & execution manifests
 │   └── tools/
+│       ├── __init__.py          # Tools package init
 │       ├── advisor.py           # Local LLM / Ollama reasoning & rule-engine fallback
 │       ├── cleaner.py           # Deterministic invariant pre-cleaning
 │       ├── reporter.py          # Markdown governance audit report generator
@@ -177,6 +180,7 @@ Options:
   -f, --file PATH            Path to the raw CSV dataset [required]
   -o, --output PATH          Path for the clean CSV destination [default: data/processed/clean_<name>.csv]
   -t, --thread-id TEXT       Session identifier for SQLite checkpointer [default: session_001]
+  -m, --model TEXT           Ollama LLM model name or 'select' to choose interactively [default: auto-detect]
   -s, --seed INTEGER         Random seed for reproducibility [default: 42]
   --stream / --no-stream     Toggle typewriter streaming effect [default: --stream]
   --dry-run                  Inspect manifest & recommendations without writing files
@@ -192,7 +196,7 @@ refine profile data/raw/dirty_customers.csv
 ### `refine status` (Check State)
 Checks whether an active SQLite checkpoint exists for the given thread:
 ```bash
-refine status --thread-id session_001
+refine status session_001
 ```
 
 ### `refine reset` (Clear Checkpoints)

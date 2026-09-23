@@ -38,6 +38,10 @@ def synthesize_minority_class(
     schema = schema or DatasetSchema()
     total_records = df.height
 
+    if total_records == 0:
+        logs.append(f"Empty dataset provided for '{target_col}'. Skipped synthesis.")
+        return df, logs
+
     col_schema = schema.columns.get(target_col)
     minority_val = (
         col_schema.minority_class_value
@@ -236,11 +240,12 @@ def _build_column_generators(df: pl.DataFrame, schema: DatasetSchema, target_col
             values = val_counts[col].to_list()
             counts = val_counts["count"].to_list()
             total = sum(counts)
-            weights = [c / total for c in counts]
+            if total > 0 and values:
+                weights = [c / total for c in counts]
 
-            def _gen_binary(i, max_id, _v=values, _w=weights):
-                return random.choices(_v, weights=_w, k=1)[0]
+                def _gen_binary(i, max_id, _v=values, _w=weights):
+                    return random.choices(_v, weights=_w, k=1)[0]
 
-            generators[col] = _gen_binary
+                generators[col] = _gen_binary
 
     return generators
